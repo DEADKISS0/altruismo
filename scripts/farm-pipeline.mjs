@@ -49,8 +49,8 @@ const LLM = resolveLLM();
 
 const UPLOAD_TO_SUPABASE = process.env.UPLOAD_TO_SUPABASE === '1';
 const GITHUB_SYNC = process.env.GITHUB_SYNC === '1';
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_OWNER = process.env.GITHUB_ORG_OR_USER || 'rr-aliados0';
+const GITHUB_TOKEN = process.env.GH_PAT;
+const GITHUB_OWNER = process.env.GH_OWNER || 'DEADKISS0';
 
 const timestamp = Date.now();
 
