@@ -1,31 +1,42 @@
 import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory } from "@/types";
-import { encodeHtmlToDataUrl } from "@/lib/utils";
-import {
-  mockPages,
-  mockChallenges,
-  mockComments,
-  mockParticipants,
-  mockUsers,
-  mockCurrentUser,
-  follows,
-  getUserById,
-  getPageById,
-  getChallengeById,
-} from "@/lib/services/mock-data";
+import * as mock from "./mock-service";
+import { isSupabaseServiceConfigured } from "./supabase-config";
 
-// In the future, this file will switch between Supabase and mock data based on env vars.
-// For now, we use the mock layer to deliver a functional MVP immediately.
+function useSupabase(): boolean {
+  return isSupabaseServiceConfigured();
+}
+
+let supabaseServicePromise: Promise<any> | null = null;
+
+async function getSupabaseService(): Promise<any> {
+  if (supabaseServicePromise) return supabaseServicePromise;
+  if (typeof window === "undefined") {
+    supabaseServicePromise = import(/* webpackIgnore: true */ "./supabase-server").then((mod) => mod.getSupabaseService());
+  } else {
+    supabaseServicePromise = import("./supabase-client").then((mod) => mod.supabaseService);
+  }
+  return supabaseServicePromise;
+}
+
+export function loadMockData(): void {
+  if (!useSupabase()) mock.loadMockData();
+}
+
+export function setCurrentUser(user: User | null): void {
+  if (!useSupabase()) mock.setCurrentUser(user);
+}
 
 export async function getCurrentUser(): Promise<User | null> {
-  return mockCurrentUser;
+  if (!useSupabase()) return mock.getCurrentUser();
+  return (await getSupabaseService()).getCurrentUser();
 }
 
 export async function getUsers(): Promise<User[]> {
-  return mockUsers;
+  return useSupabase() ? (await getSupabaseService()).getUsers() : mock.getUsers();
 }
 
 export async function getUser(id: string): Promise<User | undefined> {
-  return getUserById(id);
+  return useSupabase() ? (await getSupabaseService()).getUser(id) : mock.getUser(id);
 }
 
 export async function getPages(params?: {
@@ -33,161 +44,88 @@ export async function getPages(params?: {
   search?: string;
   authorId?: string;
 }): Promise<Page[]> {
-  let pages = [...mockPages];
-  if (params?.category) {
-    pages = pages.filter((p) => p.category === params.category);
-  }
-  if (params?.search) {
-    const q = params.search.toLowerCase();
-    pages = pages.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q))
-    );
-  }
-  if (params?.authorId) {
-    pages = pages.filter((p) => p.author_id === params.authorId);
-  }
-  return pages.sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  return useSupabase()
+    ? (await getSupabaseService()).getPages(params)
+    : mock.getPages(params);
 }
 
 export async function getPage(id: string): Promise<Page | undefined> {
-  return getPageById(id);
+  return useSupabase() ? (await getSupabaseService()).getPage(id) : mock.getPage(id);
 }
 
 export async function createPage(data: Partial<Page>): Promise<Page> {
-  const newPage: Page = {
-    id: `page-${Date.now()}`,
-    author_id: mockCurrentUser.id,
-    author: mockCurrentUser,
-    title: data.title || "Untitled",
-    description: data.description || null,
-    category: data.category || null,
-    file_url: data.file_url || "",
-    is_open_source: data.is_open_source || false,
-    source_code: data.source_code || null,
-    views: 0,
-    average_rating: 0,
-    created_at: new Date().toISOString(),
-    comments_count: 0,
-  };
-  mockPages.unshift(newPage);
-  return newPage;
+  return useSupabase()
+    ? (await getSupabaseService()).createPage(data)
+    : mock.createPage(data);
 }
 
 export async function getComments(pageId: string): Promise<Comment[]> {
-  return mockComments.filter((c) => c.page_id === pageId);
+  return useSupabase()
+    ? (await getSupabaseService()).getComments(pageId)
+    : mock.getComments(pageId);
 }
 
 export async function createComment(data: {
   page_id: string;
   content: string;
+  parent_id?: string | null;
 }): Promise<Comment> {
-  const comment: Comment = {
-    id: `comment-${Date.now()}`,
-    page_id: data.page_id,
-    user_id: mockCurrentUser.id,
-    user: mockCurrentUser,
-    parent_id: null,
-    content: data.content,
-    created_at: new Date().toISOString(),
-  };
-  mockComments.unshift(comment);
-  const page = getPageById(data.page_id);
-  if (page) page.comments_count = (page.comments_count || 0) + 1;
-  return comment;
+  return useSupabase()
+    ? (await getSupabaseService()).createComment(data)
+    : mock.createComment(data);
 }
 
 export async function getChallenges(): Promise<Challenge[]> {
-  return mockChallenges;
+  return useSupabase() ? (await getSupabaseService()).getChallenges() : mock.getChallenges();
 }
 
 export async function getChallenge(id: string): Promise<Challenge | undefined> {
-  return getChallengeById(id);
+  return useSupabase() ? (await getSupabaseService()).getChallenge(id) : mock.getChallenge(id);
 }
 
-export async function createChallenge(
-  data: Partial<Challenge>
-): Promise<Challenge> {
-  const challenge: Challenge = {
-    id: `challenge-${Date.now()}`,
-    page_id: data.page_id || null,
-    page: data.page_id ? getPageById(data.page_id) : undefined,
-    creator_id: mockCurrentUser.id,
-    creator: mockCurrentUser,
-    sponsor_id: mockCurrentUser.role === "sponsor" ? mockCurrentUser.id : null,
-    sponsor: mockCurrentUser.role === "sponsor" ? mockCurrentUser : undefined,
-    title: data.title || "Nuevo reto",
-    description: data.description || null,
-    duration_days: data.duration_days || 30,
-    goal_type: data.goal_type || "daily_usage",
-    goal_value: data.goal_value || 30,
-    reward_text: data.reward_text || null,
-    sponsor_message: data.sponsor_message || null,
-    is_active: true,
-    created_at: new Date().toISOString(),
-    participants_count: 0,
-    completed_count: 0,
-  };
-  mockChallenges.unshift(challenge);
-  return challenge;
+export async function createChallenge(data: Partial<Challenge>): Promise<Challenge> {
+  return useSupabase()
+    ? (await getSupabaseService()).createChallenge(data)
+    : mock.createChallenge(data);
 }
 
 export async function joinChallenge(challengeId: string): Promise<ChallengeParticipant> {
-  const participant: ChallengeParticipant = {
-    id: `part-${Date.now()}`,
-    challenge_id: challengeId,
-    user_id: mockCurrentUser.id,
-    user: mockCurrentUser,
-    progress: 0,
-    completed: false,
-    completed_at: null,
-  };
-  mockParticipants.push(participant);
-  const challenge = getChallengeById(challengeId);
-  if (challenge) challenge.participants_count = (challenge.participants_count || 0) + 1;
-  return participant;
+  return useSupabase()
+    ? (await getSupabaseService()).joinChallenge(challengeId)
+    : mock.joinChallenge(challengeId);
+}
+
+export async function getChallengeProgress(challengeId: string): Promise<ChallengeParticipant | undefined> {
+  return useSupabase()
+    ? (await getSupabaseService()).getChallengeProgress(challengeId)
+    : mock.getChallengeProgress(challengeId);
 }
 
 export async function updateChallengeProgress(
   challengeId: string,
   progress: number
 ): Promise<ChallengeParticipant> {
-  let participant = mockParticipants.find(
-    (p) => p.challenge_id === challengeId && p.user_id === mockCurrentUser.id
-  );
-  if (!participant) {
-    participant = await joinChallenge(challengeId);
-  }
-  participant.progress = Math.min(progress, 100);
-  const challenge = getChallengeById(challengeId);
-  if (challenge && participant.progress >= 100 && !participant.completed) {
-    participant.completed = true;
-    participant.completed_at = new Date().toISOString();
-    challenge.completed_count = (challenge.completed_count || 0) + 1;
-  }
-  return participant;
+  return useSupabase()
+    ? (await getSupabaseService()).updateChallengeProgress(challengeId, progress)
+    : mock.updateChallengeProgress(challengeId, progress);
 }
 
 export async function getLeaderboard(): Promise<User[]> {
-  return [...mockUsers]
-    .filter((u) => u.role === "developer")
-    .sort((a, b) => b.points - a.points);
+  return useSupabase() ? (await getSupabaseService()).getLeaderboard() : mock.getLeaderboard();
 }
 
 export async function isFollowing(userId: string): Promise<boolean> {
-  return follows.has(userId);
+  return useSupabase() ? (await getSupabaseService()).isFollowing(userId) : mock.isFollowing(userId);
 }
 
 export async function followUser(userId: string): Promise<void> {
-  follows.add(userId);
+  return useSupabase() ? (await getSupabaseService()).followUser(userId) : mock.followUser(userId);
 }
 
 export async function unfollowUser(userId: string): Promise<void> {
-  follows.delete(userId);
+  return useSupabase()
+    ? (await getSupabaseService()).unfollowUser(userId)
+    : mock.unfollowUser(userId);
 }
 
 export async function submitFeedback(data: {
@@ -195,13 +133,39 @@ export async function submitFeedback(data: {
   rating: number;
   custom_message?: string;
 }): Promise<void> {
-    // Feedback stored
+  return useSupabase()
+    ? (await getSupabaseService()).submitFeedback(data)
+    : mock.submitFeedback(data);
+}
+
+export async function incrementPageViews(pageId: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).incrementPageViews(pageId)
+    : mock.incrementPageViews(pageId);
+}
+
+export async function getPageLikes(pageId: string): Promise<number> {
+  return useSupabase()
+    ? (await getSupabaseService()).getPageLikes(pageId)
+    : mock.getPageLikes(pageId);
+}
+
+export async function isPageLiked(pageId: string): Promise<boolean> {
+  return useSupabase()
+    ? (await getSupabaseService()).isPageLiked(pageId)
+    : mock.isPageLiked(pageId);
+}
+
+export async function togglePageLike(pageId: string): Promise<boolean> {
+  return useSupabase()
+    ? (await getSupabaseService()).togglePageLike(pageId)
+    : mock.togglePageLike(pageId);
 }
 
 export async function uploadFiles(files: File[]): Promise<string> {
-  const htmlFile = files.find((f) => f.name.endsWith(".html")) || files[0];
-  const text = await htmlFile.text();
-  return encodeHtmlToDataUrl(text);
+  return useSupabase()
+    ? (await getSupabaseService()).uploadFiles(files)
+    : mock.uploadFiles(files);
 }
 
 export function getCategories(): { value: PageCategory; label: string }[] {
@@ -214,4 +178,4 @@ export function getCategories(): { value: PageCategory; label: string }[] {
   ];
 }
 
-export { mockCurrentUser };
+export { mockState, loadFromStorage, saveToStorage } from "./mock-service";

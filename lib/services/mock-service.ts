@@ -1,0 +1,319 @@
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory } from "@/types";
+import { encodeHtmlToDataUrl } from "@/lib/utils";
+import { mockState, loadFromStorage, saveToStorage } from "./mock-storage";
+import {
+  getUserById,
+  getPageById,
+  getChallengeById,
+} from "@/lib/services/mock-data";
+
+export function loadMockData(): void {
+  loadFromStorage();
+}
+
+let currentUserOverride: User | null = null;
+
+export function setCurrentUser(user: User | null): void {
+  currentUserOverride = user;
+}
+
+export function isSupabaseServiceConfigured(): boolean {
+  return false;
+}
+
+function save(): void {
+  saveToStorage();
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  if (currentUserOverride) return currentUserOverride;
+  return mockState.users.find((u) => u.id === mockState.currentUserId) || null;
+}
+
+export async function getUsers(): Promise<User[]> {
+  return mockState.users;
+}
+
+export async function getUser(id: string): Promise<User | undefined> {
+  return getUserById(id);
+}
+
+export async function getPages(params?: {
+  category?: PageCategory | null;
+  search?: string;
+  authorId?: string;
+}): Promise<Page[]> {
+  let pages = [...mockState.pages];
+  if (params?.category) {
+    pages = pages.filter((p) => p.category === params.category);
+  }
+  if (params?.search) {
+    const q = params.search.toLowerCase();
+    pages = pages.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        (p.description && p.description.toLowerCase().includes(q))
+    );
+  }
+  if (params?.authorId) {
+    pages = pages.filter((p) => p.author_id === params.authorId);
+  }
+  return pages.sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+export async function getPage(id: string): Promise<Page | undefined> {
+  return getPageById(id);
+}
+
+export async function createPage(data: Partial<Page>): Promise<Page> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  const newPage: Page = {
+    id: `page-${Date.now()}`,
+    author_id: currentUser.id,
+    author: currentUser,
+    title: data.title || "Untitled",
+    description: data.description || null,
+    category: data.category || null,
+    file_url: data.file_url || "",
+    is_open_source: data.is_open_source || false,
+    source_code: data.source_code || null,
+    views: 0,
+    average_rating: 0,
+    created_at: new Date().toISOString(),
+    comments_count: 0,
+  };
+  mockState.pages.unshift(newPage);
+  save();
+  return newPage;
+}
+
+export async function getComments(pageId: string): Promise<Comment[]> {
+  return mockState.comments
+    .filter((c) => c.page_id === pageId)
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+}
+
+export async function createComment(data: {
+  page_id: string;
+  content: string;
+  parent_id?: string | null;
+}): Promise<Comment> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  const comment: Comment = {
+    id: `comment-${Date.now()}`,
+    page_id: data.page_id,
+    user_id: currentUser.id,
+    user: currentUser,
+    parent_id: data.parent_id ?? null,
+    content: data.content,
+    created_at: new Date().toISOString(),
+  };
+  mockState.comments.unshift(comment);
+  const page = getPageById(data.page_id);
+  if (page) page.comments_count = (page.comments_count || 0) + 1;
+  save();
+  return comment;
+}
+
+export async function getChallenges(): Promise<Challenge[]> {
+  return mockState.challenges;
+}
+
+export async function getChallenge(id: string): Promise<Challenge | undefined> {
+  return getChallengeById(id);
+}
+
+export async function createChallenge(
+  data: Partial<Challenge>
+): Promise<Challenge> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  const challenge: Challenge = {
+    id: `challenge-${Date.now()}`,
+    page_id: data.page_id || null,
+    page: data.page_id ? getPageById(data.page_id) : undefined,
+    creator_id: currentUser.id,
+    creator: currentUser,
+    sponsor_id: currentUser.role === "sponsor" ? currentUser.id : null,
+    sponsor: currentUser.role === "sponsor" ? currentUser : undefined,
+    title: data.title || "Nuevo reto",
+    description: data.description || null,
+    duration_days: data.duration_days || 30,
+    goal_type: data.goal_type || "daily_usage",
+    goal_value: data.goal_value || 30,
+    reward_text: data.reward_text || null,
+    sponsor_message: data.sponsor_message || null,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    participants_count: 0,
+    completed_count: 0,
+  };
+  mockState.challenges.unshift(challenge);
+  save();
+  return challenge;
+}
+
+export async function joinChallenge(challengeId: string): Promise<ChallengeParticipant> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  let participant = mockState.participants.find(
+    (p) => p.challenge_id === challengeId && p.user_id === currentUser.id
+  );
+  if (participant) return participant;
+
+  participant = {
+    id: `part-${Date.now()}`,
+    challenge_id: challengeId,
+    user_id: currentUser.id,
+    user: currentUser,
+    progress: 0,
+    completed: false,
+    completed_at: null,
+  };
+  mockState.participants.push(participant);
+  const challenge = getChallengeById(challengeId);
+  if (challenge) challenge.participants_count = (challenge.participants_count || 0) + 1;
+  save();
+  return participant;
+}
+
+export async function getChallengeProgress(challengeId: string): Promise<ChallengeParticipant | undefined> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return undefined;
+  return mockState.participants.find(
+    (p) => p.challenge_id === challengeId && p.user_id === currentUser.id
+  );
+}
+
+export async function updateChallengeProgress(
+  challengeId: string,
+  progress: number
+): Promise<ChallengeParticipant> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  let participant = mockState.participants.find(
+    (p) => p.challenge_id === challengeId && p.user_id === currentUser.id
+  );
+  if (!participant) {
+    participant = await joinChallenge(challengeId);
+  }
+  participant.progress = Math.min(progress, 100);
+  const challenge = getChallengeById(challengeId);
+  if (challenge && participant.progress >= 100 && !participant.completed) {
+    participant.completed = true;
+    participant.completed_at = new Date().toISOString();
+    challenge.completed_count = (challenge.completed_count || 0) + 1;
+  }
+  save();
+  return participant;
+}
+
+export async function getLeaderboard(): Promise<User[]> {
+  return [...mockState.users]
+    .filter((u) => u.role === "developer")
+    .sort((a, b) => b.points - a.points);
+}
+
+export async function isFollowing(userId: string): Promise<boolean> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return false;
+  return mockState.follows.includes(`${currentUser.id}:${userId}`);
+}
+
+export async function followUser(userId: string): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  const key = `${currentUser.id}:${userId}`;
+  if (!mockState.follows.includes(key)) {
+    mockState.follows.push(key);
+    const target = getUserById(userId);
+    if (target) target.followers_count = (target.followers_count || 0) + 1;
+    currentUser.following_count = (currentUser.following_count || 0) + 1;
+  }
+  save();
+}
+
+export async function unfollowUser(userId: string): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  const key = `${currentUser.id}:${userId}`;
+  const index = mockState.follows.indexOf(key);
+  if (index > -1) {
+    mockState.follows.splice(index, 1);
+    const target = getUserById(userId);
+    if (target) target.followers_count = Math.max((target.followers_count || 0) - 1, 0);
+    currentUser.following_count = Math.max((currentUser.following_count || 0) - 1, 0);
+  }
+  save();
+}
+
+export async function submitFeedback(data: {
+  page_id: string;
+  rating: number;
+  custom_message?: string;
+}): Promise<void> {
+  const page = getPageById(data.page_id);
+  if (page) {
+    page.average_rating = Math.round((page.average_rating + data.rating) / 2 * 10) / 10;
+    save();
+  }
+}
+
+export async function incrementPageViews(pageId: string): Promise<void> {
+  const page = getPageById(pageId);
+  if (page) {
+    page.views = (page.views || 0) + 1;
+    save();
+  }
+}
+
+export async function getPageLikes(pageId: string): Promise<number> {
+  return mockState.likes.filter((l) => l.page_id === pageId).length;
+}
+
+export async function isPageLiked(pageId: string): Promise<boolean> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return false;
+  return mockState.likes.some(
+    (l) => l.page_id === pageId && l.user_id === currentUser.id
+  );
+}
+
+export async function togglePageLike(pageId: string): Promise<boolean> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("No current user");
+  const index = mockState.likes.findIndex(
+    (l) => l.page_id === pageId && l.user_id === currentUser.id
+  );
+  if (index > -1) {
+    mockState.likes.splice(index, 1);
+    save();
+    return false;
+  }
+  mockState.likes.push({ page_id: pageId, user_id: currentUser.id });
+  save();
+  return true;
+}
+
+export async function uploadFiles(files: File[]): Promise<string> {
+  const htmlFile = files.find((f) => f.name.endsWith(".html")) || files[0];
+  const text = await htmlFile.text();
+  return encodeHtmlToDataUrl(text);
+}
+
+export function getCategories(): { value: PageCategory; label: string }[] {
+  return [
+    { value: "productivity", label: "Productividad" },
+    { value: "health", label: "Salud" },
+    { value: "entertainment", label: "Entretenimiento" },
+    { value: "data", label: "Datos" },
+    { value: "professional", label: "Profesional" },
+  ];
+}
+
+export { mockState, loadFromStorage, saveToStorage };

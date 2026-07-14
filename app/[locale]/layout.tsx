@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { LocaleProvider } from "@/components/locale-provider";
@@ -25,10 +26,12 @@ export default async function RootLayout({
   return (
     <AuthProvider>
       <LocaleProvider locale={validLocale} messages={messages}>
-        <Navbar />
-        <main className="relative">{children}</main>
-        <Footer />
-        <Toaster richColors position="bottom-right" />
+        <TooltipProvider>
+          <Navbar />
+          <main className="relative">{children}</main>
+          <Footer />
+          <Toaster richColors position="bottom-right" />
+        </TooltipProvider>
       </LocaleProvider>
     </AuthProvider>
   );

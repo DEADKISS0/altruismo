@@ -1,5 +1,5 @@
 import { ChallengeCard } from "@/components/challenge-card";
-import { getChallenges } from "@/lib/services";
+import { getChallenges } from "@/lib/services/server";
 import { LocaleParams } from "@/types";
 
 export default async function ChallengesPage({ params }: LocaleParams) {

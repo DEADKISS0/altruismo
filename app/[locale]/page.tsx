@@ -1,7 +1,7 @@
 import { Hero } from "@/components/hero";
 import { PageCard } from "@/components/page-card";
 import { ChallengeCard } from "@/components/challenge-card";
-import { getPages, getChallenges } from "@/lib/services";
+import { getPages, getChallenges } from "@/lib/services/server";
 import { LocaleParams } from "@/types";
 
 export default async function HomePage({ params }: LocaleParams) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { useAuth } from "@/components/auth-provider";
 import { Challenge } from "@/types";
@@ -9,7 +9,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Users, Trophy, Upload } from "lucide-react";
-import { joinChallenge, updateChallengeProgress } from "@/lib/services";
+import {
+  joinChallenge,
+  updateChallengeProgress,
+  getChallengeProgress,
+} from "@/lib/services";
 import { toast } from "sonner";
 
 interface ChallengeDetailClientProps {
@@ -20,8 +24,17 @@ export function ChallengeDetailClient({ challenge }: ChallengeDetailClientProps)
   const { messages } = useLocale();
   const { user } = useAuth();
   const t = messages.challenges;
-  const [progress, setProgress] = useState(18);
+  const [progress, setProgress] = useState(0);
   const [joined, setJoined] = useState(false);
+
+  useEffect(() => {
+    getChallengeProgress(challenge.id).then((participant) => {
+      if (participant) {
+        setJoined(true);
+        setProgress(participant.progress);
+      }
+    });
+  }, [challenge.id]);
 
   const handleJoin = async () => {
     if (!user) {
@@ -38,6 +51,10 @@ export function ChallengeDetailClient({ challenge }: ChallengeDetailClientProps)
   };
 
   const handleProgress = async () => {
+    if (!user) {
+      toast.error(messages.nav.login);
+      return;
+    }
     try {
       const newProgress = Math.min(progress + 10, 100);
       setProgress(newProgress);

@@ -1,15 +1,7 @@
-import { notFound } from "next/navigation";
-import { PageViewer } from "@/components/page-viewer";
-import { getPage } from "@/lib/services";
+import { PageViewerClient } from "@/components/page-viewer-client";
 import { PageParams } from "@/types";
 
 export default async function PageDetailPage({ params }: PageParams) {
   const { id } = await params;
-  const page = await getPage(id);
-
-  if (!page) {
-    notFound();
-  }
-
-  return (<PageViewer page={page} />);
+  return <PageViewerClient id={id} />;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Page } from "@/types";
+import { Page, Comment } from "@/types";
 import { useLocale } from "@/components/locale-provider";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Star,
   Code2,
@@ -18,18 +19,92 @@ import {
   Eye,
   UserPlus,
   UserMinus,
+  Heart,
+  Maximize2,
+  ExternalLink as PopOut,
 } from "lucide-react";
 import {
   isFollowing,
   followUser,
   unfollowUser,
   createComment,
+  getComments,
   submitFeedback,
+  getPageLikes,
+  isPageLiked,
+  togglePageLike,
+  incrementPageViews,
 } from "@/lib/services";
 import { toast } from "sonner";
 
 interface PageViewerProps {
   page: Page;
+}
+
+function CommentItem({
+  comment,
+  pageId,
+  onReply,
+  depth = 0,
+}: {
+  comment: Comment;
+  pageId: string;
+  onReply: (parentId: string) => void;
+  depth?: number;
+}) {
+  const { locale } = useLocale();
+  const { user } = useAuth();
+  const [replies, setReplies] = useState<Comment[]>([]);
+
+  useEffect(() => {
+    getComments(pageId).then((all) => {
+      setReplies(all.filter((c) => c.parent_id === comment.id));
+    });
+  }, [pageId, comment.id]);
+
+  return (
+    <div className={`${depth > 0 ? "ml-8 border-l border-border pl-4" : ""}`}>
+      <div className="flex gap-3 py-3">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={comment.user?.avatar_url || ""} alt={comment.user?.name || ""} />
+          <AvatarFallback className="bg-void text-parchment text-xs">
+            {comment.user?.name?.charAt(0) || "U"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/profile/${comment.user_id}`}
+              className="text-sm font-medium text-parchment hover:text-ember"
+            >
+              {comment.user?.name}
+            </Link>
+            <span className="text-xs text-ash">
+              {new Date(comment.created_at).toLocaleDateString()}
+            </span>
+          </div>
+          <p className="text-sm text-ash mt-1">{comment.content}</p>
+          {user && (
+            <button
+              onClick={() => onReply(comment.id)}
+              className="text-xs text-ember hover:underline mt-1"
+            >
+              Responder
+            </button>
+          )}
+        </div>
+      </div>
+      {replies.map((reply) => (
+        <CommentItem
+          key={reply.id}
+          comment={reply}
+          pageId={pageId}
+          onReply={onReply}
+          depth={depth + 1}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function PageViewer({ page }: PageViewerProps) {
@@ -38,16 +113,40 @@ export function PageViewer({ page }: PageViewerProps) {
   const t = messages.page;
   const [following, setFollowing] = useState(false);
   const isOwnPage = user?.id === page.author_id;
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsCount, setCommentsCount] = useState(page.comments_count || 0);
+  const [newComment, setNewComment] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [rating, setRating] = useState(0);
+  const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source">("tool");
+  const [likes, setLikes] = useState(0);
+  const [liked, setLiked] = useState(false);
+  const [toolUrl, setToolUrl] = useState<string | null>(null);
+  const [toolError, setToolError] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+
+  useEffect(() => {
+    if (page.file_url) {
+      setToolUrl(page.file_url);
+    } else if (page.source_code) {
+      const blob = new Blob([page.source_code], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      setToolUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setToolError(true);
+    }
+  }, [page.file_url, page.source_code]);
 
   useEffect(() => {
     if (!isOwnPage) {
       isFollowing(page.author_id).then(setFollowing);
     }
-  }, [page.author_id, isOwnPage]);
-  const [comments, setComments] = useState(page.comments_count || 0);
-  const [newComment, setNewComment] = useState("");
-  const [rating, setRating] = useState(0);
-  const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source">("tool");
+    getComments(page.id).then(setComments);
+    getPageLikes(page.id).then(setLikes);
+    isPageLiked(page.id).then(setLiked);
+    incrementPageViews(page.id).catch(() => {});
+  }, [page.author_id, page.id, isOwnPage]);
 
   const handleFollow = async () => {
     if (!user) return;
@@ -68,9 +167,11 @@ export function PageViewer({ page }: PageViewerProps) {
     e.preventDefault();
     if (!newComment.trim()) return;
     try {
-      await createComment({ page_id: page.id, content: newComment });
-      setComments((c) => c + 1);
+      await createComment({ page_id: page.id, content: newComment, parent_id: replyTo });
+      setCommentsCount((c) => c + 1);
       setNewComment("");
+      setReplyTo(null);
+      getComments(page.id).then(setComments);
       toast.success(messages.page.commentSubmit);
     } catch {
       toast.error(messages.common.error);
@@ -86,6 +187,22 @@ export function PageViewer({ page }: PageViewerProps) {
       toast.error(messages.common.error);
     }
   };
+
+  const handleLike = async () => {
+    if (!user) {
+      toast.error(messages.nav.login);
+      return;
+    }
+    try {
+      const next = await togglePageLike(page.id);
+      setLiked(next);
+      setLikes((prev) => (next ? prev + 1 : Math.max(prev - 1, 0)));
+    } catch {
+      toast.error(messages.common.error);
+    }
+  };
+
+  const topLevelComments = comments.filter((c) => c.parent_id === null);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -116,20 +233,67 @@ export function PageViewer({ page }: PageViewerProps) {
               className={activeTab === "comments" ? "bg-ember text-parchment" : ""}
             >
               <MessageSquare className="mr-2 h-4 w-4" />
-              {t.comments} ({comments})
+              {t.comments} ({commentsCount})
             </Button>
           </div>
 
           {activeTab === "tool" && (
-            <Card className="bg-card border-border overflow-hidden">
+            <Card className="bg-card border-border overflow-hidden relative">
               <CardContent className="p-0">
-                <iframe
-                  src={page.file_url}
-                  className="w-full h-[600px] border-0"
-                  sandbox="allow-scripts allow-same-origin"
-                  title={page.title}
-                />
+                {toolError ? (
+                  <div className="w-full h-[600px] flex items-center justify-center text-ash flex-col gap-4">
+                    <p>No se puede cargar esta herramienta</p>
+                    <p className="text-sm">El desarrollador no incluyó el archivo fuente.</p>
+                  </div>
+                ) : toolUrl ? (
+                  <iframe
+                    src={toolUrl}
+                    className="w-full h-[600px] border-0"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    title={page.title}
+                    onError={() => setToolError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-[600px] flex items-center justify-center text-ash">
+                    Cargando herramienta...
+                  </div>
+                )}
               </CardContent>
+              {toolUrl && (
+              <div className="absolute top-3 right-3 flex gap-2 z-10">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="bg-pitch/90 border border-border rounded-lg hover:bg-void transition-colors"
+                  onClick={() => window.open(toolUrl, "_blank")}
+                  title="Abrir en nueva pestaña"
+                >
+                  <PopOut className="h-4 w-4 text-parchment" />
+                </Button>
+                <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
+                  <DialogTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-pitch/90 border border-border rounded-lg hover:bg-void transition-colors"
+                        title="Pantalla completa"
+                      >
+                        <Maximize2 className="h-4 w-4 text-parchment" />
+                      </Button>
+                    }
+                  />
+                  <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
+                    <iframe
+                      src={toolUrl}
+                      className="w-[95vw] h-[90vh] border-0 rounded-lg"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      title={page.title}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+              )}
             </Card>
           )}
 
@@ -149,6 +313,18 @@ export function PageViewer({ page }: PageViewerProps) {
                 <h3 className="font-heading text-2xl text-parchment">{t.comments}</h3>
                 {user ? (
                   <form onSubmit={handleComment} className="space-y-2">
+                    {replyTo && (
+                      <div className="text-sm text-ash">
+                        Respondiendo comentario{" "}
+                        <button
+                          type="button"
+                          onClick={() => setReplyTo(null)}
+                          className="text-ember hover:underline"
+                        >
+                          (cancelar)
+                        </button>
+                      </div>
+                    )}
                     <Textarea
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
@@ -162,6 +338,22 @@ export function PageViewer({ page }: PageViewerProps) {
                 ) : (
                   <p className="text-ash">{messages.page.signInToComment}</p>
                 )}
+                <div className="divide-y divide-border">
+                  {topLevelComments.length > 0 ? (
+                    topLevelComments.map((comment) => (
+                      <CommentItem
+                        key={comment.id}
+                        comment={comment}
+                        pageId={page.id}
+                        onReply={setReplyTo}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-ash py-4">
+                      No hay comentarios aún. Sé el primero.
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -172,11 +364,21 @@ export function PageViewer({ page }: PageViewerProps) {
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="border-ember/30 text-ember">
-                  {page.category}
+                  {page.category || "Sin categoría"}
                 </Badge>
-                <div className="flex items-center gap-1 text-ash">
-                  <Eye className="h-4 w-4" />
-                  {page.views}
+                <div className="flex items-center gap-3 text-ash">
+                  <button
+                    onClick={handleLike}
+                    className={`flex items-center gap-1 transition-colors ${liked ? "text-ember" : "hover:text-ember"}`}
+                    aria-label={liked ? "Quitar me gusta" : "Me gusta"}
+                  >
+                    <Heart className={`h-4 w-4 ${liked ? "fill-ember" : ""}`} />
+                    <span>{likes}</span>
+                  </button>
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-4 w-4" />
+                    {page.views}
+                  </span>
                 </div>
               </div>
               <h1 className="font-heading text-4xl text-parchment">{page.title}</h1>
@@ -205,9 +407,7 @@ export function PageViewer({ page }: PageViewerProps) {
                 disabled={isOwnPage}
               >
                 {isOwnPage ? (
-                  <>
-                    {messages.page.yourPage}
-                  </>
+                  <>{messages.page.yourPage}</>
                 ) : following ? (
                   <>
                     <UserMinus className="mr-2 h-4 w-4" />
@@ -243,7 +443,7 @@ export function PageViewer({ page }: PageViewerProps) {
                 ))}
               </div>
               <p className="text-ash">
-                {page.average_rating.toFixed(1)} / 5 ({page.comments_count} {messages.page.comments})
+                {page.average_rating.toFixed(1)} / 5 ({commentsCount} {messages.page.comments})
               </p>
             </CardContent>
           </Card>

@@ -3,11 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "@/components/locale-provider";
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Flame, Globe } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Menu, Flame, Globe, LogOut, User, BarChart3, Sun, Moon } from "lucide-react";
 import { locales, labels, Locale } from "@/lib/i18n/config";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function LanguageSwitcher() {
   const { messages, locale } = useLocale();
@@ -20,13 +27,22 @@ function LanguageSwitcher() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <Button variant="ghost" size="icon" className="text-parchment hover:text-ember" aria-label={locale === "es" ? "Cambiar idioma" : "Change language"}>
-            <Globe className="h-5 w-5" />
-          </Button>
-        }
-      />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon" className="text-parchment hover:text-ember" aria-label={locale === "es" ? "Cambiar idioma" : "Change language"}>
+                  <Globe className="h-5 w-5" />
+                </Button>
+              }
+            />
+          }
+        />
+        <TooltipContent>
+          <p>{locale === "es" ? "Cambiar idioma" : "Change language"}</p>
+        </TooltipContent>
+      </Tooltip>
       <SheetContent side="right" className="bg-pitch border-border">
         <div className="flex flex-col gap-4 mt-8">
           <h3 className="font-heading text-2xl text-parchment">{messages.nav.language}</h3>
@@ -42,6 +58,151 @@ function LanguageSwitcher() {
               {labels[l]}
             </Link>
           ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ThemeToggle() {
+  const { locale } = useLocale();
+  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    setMounted(true);
+    const saved = localStorage.getItem("theme") as "light" | "dark" | null;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial = saved || (prefersDark ? "dark" : "light");
+    setTheme(initial);
+    document.documentElement.classList.toggle("dark", initial === "dark");
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
+
+  if (!mounted) {
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button variant="ghost" size="icon" className="text-parchment" aria-label="Theme">
+              <Sun className="h-5 w-5" />
+            </Button>
+          }
+        />
+        <TooltipContent>
+          <p>{locale === "es" ? "Cambiar tema" : "Toggle theme"}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="text-parchment hover:text-ember"
+            aria-label={locale === "es" ? "Cambiar tema" : "Toggle theme"}
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+        }
+      />
+      <TooltipContent>
+        <p>{theme === "dark" ? (locale === "es" ? "Modo claro" : "Light mode") : (locale === "es" ? "Modo oscuro" : "Dark mode")}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function UserMenu() {
+  const { user, signOut } = useAuth();
+  const { messages, locale } = useLocale();
+  const [open, setOpen] = useState(false);
+
+  if (!user) {
+    return (
+      <Link href={`/${locale}/login`}>
+        <Button variant="outline" className="border-parchment/20 text-parchment hover:bg-void">
+          {messages.nav.login}
+        </Button>
+      </Link>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 p-0" aria-label={user.name || "User menu"}>
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user.avatar_url || ""} alt={user.name || "User avatar"} />
+                    <AvatarFallback className="bg-ember text-parchment text-sm">
+                      {user.name?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              }
+            />
+          }
+        />
+        <TooltipContent>
+          <p>{user.name}</p>
+        </TooltipContent>
+      </Tooltip>
+      <SheetContent side="right" className="bg-pitch border-border">
+        <div className="flex flex-col gap-4 mt-8">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={user.avatar_url || ""} alt={user.name || "User avatar"} />
+              <AvatarFallback className="bg-ember text-parchment">
+                {user.name?.charAt(0).toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium text-parchment">{user.name}</p>
+              <p className="text-sm text-ash">{user.points.toLocaleString()} {messages.leaderboard.points}</p>
+            </div>
+          </div>
+          <Link
+            href={`/${locale}/profile/${user.id}`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 text-lg text-parchment hover:text-ember"
+          >
+            <User className="h-5 w-5" />
+            {messages.nav.profile}
+          </Link>
+          <Link
+            href={`/${locale}/dashboard`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 text-lg text-parchment hover:text-ember"
+          >
+            <BarChart3 className="h-5 w-5" />
+            {messages.nav.dashboard}
+          </Link>
+          <Button
+            onClick={() => {
+              signOut();
+              setOpen(false);
+            }}
+            variant="outline"
+            className="w-full border-parchment/20 text-parchment hover:bg-void"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            {messages.nav.logout}
+          </Button>
         </div>
       </SheetContent>
     </Sheet>
@@ -85,24 +246,30 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
+          <ThemeToggle />
           <Link href={`/${locale}/upload`}>
-            <Button className="hidden md:inline-flex bg-ember text-parchment hover:bg-ember/90">
-              {t.upload}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button className="hidden md:inline-flex bg-ember text-parchment hover:bg-ember/90">
+                    {t.upload}
+                  </Button>
+                }
+              />
+              <TooltipContent>
+                <p>{locale === "es" ? "Subir una herramienta" : "Upload a tool"}</p>
+              </TooltipContent>
+            </Tooltip>
           </Link>
-          <Link href={`/${locale}/login`}>
-            <Button variant="outline" className="border-parchment/20 text-parchment hover:bg-void">
-              {t.login}
-            </Button>
-          </Link>
+          <UserMenu />
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger
-            render={
-              <Button variant="ghost" size="icon" className="text-parchment md:hidden" aria-label={locale === "es" ? "Abrir menú" : "Open menu"}>
-                <Menu className="h-5 w-5" />
-              </Button>
-            }
-          />
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon" className="text-parchment md:hidden" aria-label={locale === "es" ? "Abrir menú" : "Open menu"}>
+                  <Menu className="h-5 w-5" />
+                </Button>
+              }
+            />
             <SheetContent side="right" className="bg-pitch border-border">
               <div className="flex flex-col gap-4 mt-8">
                 {links.map((link) => (
@@ -115,6 +282,10 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                <div className="flex items-center justify-between py-2 border-t border-border">
+                  <span className="text-parchment">{locale === "es" ? "Modo oscuro" : "Dark mode"}</span>
+                  <ThemeToggle />
+                </div>
                 <Link href={`/${locale}/upload`} onClick={() => setMobileOpen(false)}>
                   <Button className="w-full bg-ember text-parchment">{t.upload}</Button>
                 </Link>

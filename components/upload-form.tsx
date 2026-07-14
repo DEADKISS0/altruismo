@@ -20,7 +20,11 @@ import { PageCategory } from "@/types";
 import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export function UploadForm() {
+interface UploadFormProps {
+  onSuccess?: () => void;
+}
+
+export function UploadForm({ onSuccess }: UploadFormProps) {
   const { messages, locale } = useLocale();
   const router = useRouter();
   const t = messages.upload;
@@ -58,7 +62,11 @@ export function UploadForm() {
       toast.success(messages.common.success, {
         description: locale === "es" ? "Página publicada" : "Page published",
       });
-      router.push(`/${locale}/page/${page.id}`);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push(`/${locale}/page/${page.id}`);
+      }
     } catch {
       toast.error(messages.common.error, {
         description: locale === "es" ? "No se pudo publicar" : "Could not publish",

@@ -119,3 +119,7 @@ export interface ProfileParams {
 export interface ChallengeParams {
   params: Promise<{ locale: Locale; id: string }>;
 }
+
+export interface DashboardParams {
+  params: Promise<{ locale: Locale }>;
+}

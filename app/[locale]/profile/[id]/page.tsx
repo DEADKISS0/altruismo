@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { ProfileClient } from "@/components/profile-client";
-import { getUser, getPages } from "@/lib/services";
+import { getUser, getPages } from "@/lib/services/server";
 import { ProfileParams } from "@/types";
 
 export default async function ProfilePage({ params }: ProfileParams) {

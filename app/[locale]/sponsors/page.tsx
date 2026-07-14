@@ -12,7 +12,7 @@ import { createChallenge } from "@/lib/services";
 import { toast } from "sonner";
 
 export default function SponsorsPage() {
-  const { messages, locale } = useLocale();
+  const { messages } = useLocale();
   const { user } = useAuth();
   const t = messages.sponsors;
   const [title, setTitle] = useState("");

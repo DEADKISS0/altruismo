@@ -1,5 +1,5 @@
 import { LeaderboardTable } from "@/components/leaderboard-table";
-import { getLeaderboard } from "@/lib/services";
+import { getLeaderboard } from "@/lib/services/server";
 import { LocaleParams } from "@/types";
 
 export default async function LeaderboardPage({ params }: LocaleParams) {

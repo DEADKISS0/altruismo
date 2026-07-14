@@ -1,19 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import { Database } from "@/types/database";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
-
-export function createBrowserClient() {
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase not configured");
+    throw new Error("Supabase environment variables are not set");
   }
-  return createClient<Database>(supabaseUrl, supabaseKey);
+
+  return createBrowserClient<Database>(supabaseUrl, supabaseKey);
 }
 
-export function getSupabaseClient() {
-  if (!isSupabaseConfigured) return null;
-  return createBrowserClient();
+export function isSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 }

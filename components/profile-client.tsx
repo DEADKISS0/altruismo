@@ -1,21 +1,29 @@
 "use client";
 
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { User, Page } from "@/types";
 import { PageCard } from "@/components/page-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, FileCode } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Trophy, Users, FileCode, Wrench } from "lucide-react";
+import { getPages } from "@/lib/services";
 
 interface ProfileClientProps {
   user: User;
   pages: Page[];
 }
 
-export function ProfileClient({ user, pages }: ProfileClientProps) {
-  const { messages, locale } = useLocale();
+export function ProfileClient({ user, pages: initialPages }: ProfileClientProps) {
+  const { messages } = useLocale();
+  const [pages, setPages] = useState<Page[]>(initialPages);
+  const [activeTab, setActiveTab] = useState("published");
+
+  useEffect(() => {
+    getPages({ authorId: user.id }).then(setPages);
+  }, [user.id]);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -60,28 +68,41 @@ export function ProfileClient({ user, pages }: ProfileClientProps) {
         </CardContent>
       </Card>
 
-      <div className="space-y-6">
-        <div className="flex items-end justify-between">
-          <h2 className="font-heading text-3xl text-parchment">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="published" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
             {messages.profile.publishedPages}
-          </h2>
-          <Link href={`/${locale}/feed`}>
-            <span className="text-ember hover:underline">
-              {messages.profile.viewAll}
-            </span>
-          </Link>
-        </div>
+          </TabsTrigger>
+          <TabsTrigger value="tools" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
+            <Wrench className="mr-2 h-4 w-4" />
+            {messages.profile.myTools}
+          </TabsTrigger>
+        </TabsList>
 
-        {pages.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pages.map((page) => (
-              <PageCard key={page.id} page={page} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-ash">{messages.profile.noPages}</p>
-        )}
-      </div>
+        <TabsContent value="published" className="mt-6">
+          {pages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pages.map((page) => (
+                <PageCard key={page.id} page={page} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-ash">{messages.profile.noPages}</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tools" className="mt-6">
+          {pages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pages.map((page) => (
+                <PageCard key={page.id} page={page} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-ash">{messages.profile.noTools}</p>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
