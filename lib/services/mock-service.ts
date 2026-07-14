@@ -419,6 +419,27 @@ export async function restorePageVersion(versionId: string): Promise<boolean> {
 
 let mockAchievements: Achievement[] = [];
 
+let mockPointsHistory: any[] = [];
+
+export async function addPoints(userId: string, points: number, action: string, metadata?: Record<string, any>): Promise<void> {
+  mockPointsHistory.push({ id: `pts-${Date.now()}`, points, action, metadata, created_at: new Date().toISOString() });
+  const user = mockState.users.find(u => u.id === userId);
+  if (user) {
+    user.points = (user.points || 0) + points;
+    user.level = Math.max(1, Math.floor(user.points / 100) + 1);
+  }
+}
+
+export async function getPointsHistory(userId: string, limit = 20): Promise<any[]> {
+  return mockPointsHistory.slice(0, limit);
+}
+
+export async function awardPointsForAction(userId: string, action: string): Promise<void> {
+  const pointsMap: Record<string, number> = { upload: 10, like: 2, comment: 1, review: 5, challenge_complete: 25, first_upload: 50 };
+  const points = pointsMap[action] || 0;
+  if (points > 0) await addPoints(userId, points, action);
+}
+
 export async function getAchievements(userId: string): Promise<Achievement[]> {
   return mockAchievements.filter((a) => a.user_id === userId);
 }

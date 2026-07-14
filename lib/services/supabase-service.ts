@@ -643,6 +643,41 @@ export function createService(supabase: any) {
     if (error) throw error;
   }
 
+  // Points system
+  async function addPoints(userId: string, points: number, action: string, metadata?: Record<string, any>): Promise<void> {
+    const { error } = await supabase.rpc("add_points", {
+      p_user_id: userId,
+      p_points: points,
+      p_action: action,
+      p_metadata: metadata || {},
+    });
+    if (error) throw error;
+  }
+
+  async function getPointsHistory(userId: string, limit = 20): Promise<any[]> {
+    const { data, error } = await supabase.rpc("get_points_history", {
+      p_user_id: userId,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function awardPointsForAction(userId: string, action: string): Promise<void> {
+    const pointsMap: Record<string, number> = {
+      upload: 10,
+      like: 2,
+      comment: 1,
+      review: 5,
+      challenge_complete: 25,
+      first_upload: 50,
+    };
+    const points = pointsMap[action] || 0;
+    if (points > 0) {
+      await addPoints(userId, points, action);
+    }
+  }
+
   async function getAchievements(userId: string): Promise<Achievement[]> {
     const { data, error } = await supabase
       .from("achievements")

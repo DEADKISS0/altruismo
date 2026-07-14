@@ -12,7 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, Flame, Globe, LogOut, User, BarChart3, Sun, Moon } from "lucide-react";
+import { Menu, Flame, Globe, LogOut, User, BarChart3, Sun, Moon, Star } from "lucide-react";
 import { locales, labels, Locale } from "@/lib/i18n/config";
 import { NotificationBell } from "@/components/notification-bell";
 import { useState, useEffect } from "react";
@@ -172,9 +172,22 @@ function UserMenu() {
                 {user.name?.charAt(0).toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1">
               <p className="font-medium text-parchment">{user.name}</p>
-              <p className="text-sm text-ash">{user.points.toLocaleString()} {messages.leaderboard.points}</p>
+              <p className="text-sm text-ash">
+                <span className="text-ember font-medium">{user.points.toLocaleString()}</span> {messages.leaderboard.points}
+                {" · "}
+                <span className="text-amber-400">Nivel {user.level}</span>
+              </p>
+              <div className="mt-1 h-1.5 bg-void rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-ember to-amber-400 rounded-full transition-all duration-500"
+                  style={{ width: `${(user.points % 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-ash mt-0.5">
+                {100 - (user.points % 100)} {locale === "es" ? "puntos para el siguiente nivel" : "points to next level"}
+              </p>
             </div>
           </div>
           <Link

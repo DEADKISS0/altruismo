@@ -228,6 +228,24 @@ export async function restorePageVersion(versionId: string): Promise<boolean> {
     : mock.restorePageVersion(versionId);
 }
 
+export async function addPoints(userId: string, points: number, action: string, metadata?: Record<string, any>): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).addPoints(userId, points, action, metadata)
+    : mock.addPoints(userId, points, action, metadata);
+}
+
+export async function getPointsHistory(userId: string, limit?: number): Promise<any[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getPointsHistory(userId, limit)
+    : mock.getPointsHistory(userId, limit);
+}
+
+export async function awardPointsForAction(userId: string, action: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).awardPointsForAction(userId, action)
+    : mock.awardPointsForAction(userId, action);
+}
+
 export async function getAchievements(userId: string): Promise<Achievement[]> {
   return useSupabase()
     ? (await getSupabaseService()).getAchievements(userId)
