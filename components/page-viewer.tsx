@@ -430,30 +430,10 @@ export function PageViewer({ page }: PageViewerProps) {
                 </div>
                 <div className="flex items-center gap-2 pt-2">
                   <button
-                    onClick={() => handleShare("twitter")}
-                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
-                    aria-label="Compartir en Twitter"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleShare("facebook")}
-                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
-                    aria-label="Compartir en Facebook"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleShare("linkedin")}
-                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
-                    aria-label="Compartir en LinkedIn"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </button>
-                  <button
                     onClick={handleCopyLink}
                     className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
                     aria-label="Copiar enlace"
+                    title="Copiar enlace"
                   >
                     <LinkIcon className="h-4 w-4" />
                   </button>
@@ -465,6 +445,7 @@ export function PageViewer({ page }: PageViewerProps) {
                         : "bg-void hover:bg-pitch text-ash hover:text-parchment"
                     }`}
                     aria-label={isBookmarked ? "Quitar de favoritos" : "Añadir a favoritos"}
+                    title={isBookmarked ? "Quitar de favoritos" : "Guardar"}
                   >
                     {isBookmarked ? (
                       <BookmarkCheck className="h-4 w-4" />

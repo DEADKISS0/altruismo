@@ -38,7 +38,7 @@ function SingleUploadForm({ onSuccess }: { onSuccess?: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !file) {
-      toast.error("Completa tÃ­tulo y archivo");
+      toast.error("Completa el título y archivo");
       return;
     }
     setIsLoading(true);
@@ -60,7 +60,7 @@ function SingleUploadForm({ onSuccess }: { onSuccess?: () => void }) {
       if (onSuccess) onSuccess();
       else router.push(`/${locale}/page/${page.id}`);
     } catch {
-      toast.error("No se pudo publicar");
+      toast.error("No se pudo publicar. Verifica que hayas iniciado sesión.");
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +98,7 @@ function SingleUploadForm({ onSuccess }: { onSuccess?: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-parchment">TÃ­tulo</Label>
+        <Label className="text-parchment">Título</Label>
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -109,20 +109,20 @@ function SingleUploadForm({ onSuccess }: { onSuccess?: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-parchment">DescripciÃ³n</Label>
+        <Label className="text-parchment">Descripción</Label>
         <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe quÃ© hace esta herramienta"
+          placeholder="Describe qué hace esta herramienta"
           className="bg-pitch border-border text-parchment min-h-[80px]"
         />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-parchment">CategorÃ­a</Label>
+        <Label className="text-parchment">Categoría</Label>
         <Select value={category} onValueChange={(v) => setCategory(v as PageCategory)}>
           <SelectTrigger className="bg-pitch border-border text-parchment">
-            <SelectValue placeholder="Seleccionar categorÃ­a" />
+            <SelectValue placeholder="Seleccionar categoría" />
           </SelectTrigger>
           <SelectContent className="bg-pitch border-border">
             {categories.map((cat) => (
@@ -247,7 +247,7 @@ function BatchUploadForm({ onSuccess }: { onSuccess?: () => void }) {
             {items.length === 0 ? "Seleccionar archivos HTML" : `${items.length} archivo${items.length > 1 ? "s" : ""} seleccionado${items.length > 1 ? "s" : ""}`}
           </p>
           <p className="text-sm text-ash">
-            PodÃ©s elegir varios archivos .html de una vez
+            Podés elegir varios archivos .html de una vez
           </p>
         </div>
       </button>
@@ -279,7 +279,7 @@ function BatchUploadForm({ onSuccess }: { onSuccess?: () => void }) {
                     <Input
                       value={item.title}
                       onChange={(e) => updateItem(item.id, "title", e.target.value)}
-                      placeholder="TÃ­tulo de la herramienta"
+                      placeholder="Título de la herramienta"
                       className="bg-pitch border-border text-parchment h-9"
                       disabled={item.status !== "pending"}
                     />
@@ -289,7 +289,7 @@ function BatchUploadForm({ onSuccess }: { onSuccess?: () => void }) {
                       disabled={item.status !== "pending"}
                     >
                       <SelectTrigger className="bg-pitch border-border text-parchment h-9">
-                        <SelectValue placeholder="CategorÃ­a" />
+                        <SelectValue placeholder="Categoría" />
                       </SelectTrigger>
                       <SelectContent className="bg-pitch border-border">
                         {categories.map((cat) => (
@@ -304,7 +304,7 @@ function BatchUploadForm({ onSuccess }: { onSuccess?: () => void }) {
                   <Textarea
                     value={item.description}
                     onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                    placeholder="DescripciÃ³n (opcional)"
+                    placeholder="Descripción (opcional)"
                     className="bg-pitch border-border text-parchment min-h-[60px] text-sm"
                     disabled={item.status !== "pending"}
                   />
@@ -364,7 +364,7 @@ export default function UploadPageClient() {
         </h1>
         <p className="text-ash text-center mb-10">
           {locale === "es"
-            ? "ElegÃ­ cÃ³mo querÃ©s subir tu herramienta"
+            ? "Elige cómo quieres subir tu herramienta"
             : "Choose how you want to upload your tool"}
         </p>
 
@@ -376,7 +376,7 @@ export default function UploadPageClient() {
             <File className="h-10 w-10 text-ember mb-4 group-hover:scale-110 transition-transform" />
             <h3 className="font-heading text-xl text-parchment mb-2">Una herramienta</h3>
             <p className="text-sm text-ash">
-              SubÃ­ un solo archivo HTML con tÃ­tulo, descripciÃ³n y categorÃ­a.
+              Sube un solo archivo HTML con título, descripción y categoría.
             </p>
           </button>
 
@@ -387,7 +387,7 @@ export default function UploadPageClient() {
             <Layers className="h-10 w-10 text-ember mb-4 group-hover:scale-110 transition-transform" />
             <h3 className="font-heading text-xl text-parchment mb-2">Varias herramientas</h3>
             <p className="text-sm text-ash">
-              SubÃ­ varios archivos HTML a la vez. Cada uno se publica como herramienta independiente.
+              Sube varios archivos HTML a la vez. Cada uno se publica como herramienta independiente.
             </p>
           </button>
         </div>
@@ -409,8 +409,8 @@ export default function UploadPageClient() {
       </h1>
       <p className="text-ash mb-8">
         {mode === "single"
-          ? "CompletÃ¡ los datos de tu herramienta y subÃ­ el archivo HTML."
-          : "ElegÃ­ los archivos HTML, ponÃ© un tÃ­tulo y descripciÃ³n a cada uno, y publicalos todos de una."}
+          ? "Completá los datos de tu herramienta y subí el archivo HTML."
+          : "Elegí los archivos HTML, poné un título y descripción a cada uno, y publicalos todos de una."}
       </p>
 
       {mode === "single" ? (
