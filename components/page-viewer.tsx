@@ -292,9 +292,9 @@ export function PageViewer({ page }: PageViewerProps) {
                 ) : (
                   <iframe
                     src={toolUrl || undefined}
-                    srcDoc={toolHtml || undefined}
+                    srcdoc={toolHtml || undefined}
                     className="w-full h-[600px] border-0"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    sandbox="allow-scripts allow-forms allow-popups"
                     title={page.title}
                   />
                 )}
