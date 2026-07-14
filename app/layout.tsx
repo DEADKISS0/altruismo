@@ -41,11 +41,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <!-- deploy --><html lang="es" className={`${inter.variable} ${ibmPlexMono.variable} ${bebasNeue.variable}`}>
+    <html lang="es" className={`${inter.variable} ${ibmPlexMono.variable} ${bebasNeue.variable}`}>
       <body className="min-h-screen bg-pitch text-parchment font-sans antialiased">
         {children}
       </body>
     </html>
   );
 }
+
 
