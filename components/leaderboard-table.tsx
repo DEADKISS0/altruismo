@@ -6,9 +6,19 @@ import { useLocale } from "@/components/locale-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Medal, ChevronLeft, ChevronRight } from "lucide-react";
+import { Medal, ChevronLeft, ChevronRight, Trophy, Star, Zap } from "lucide-react";
 
 const ROWS_PER_PAGE = 10;
+
+const LEVEL_TITLES: Record<number, string> = {
+  1: "Novato", 2: "Aprendiz", 3: "Practicante", 4: "Iniciado", 5: "Desarrollador",
+  6: "Experto", 7: "Maestro", 8: "Arquitecto", 9: "Leyenda", 10: "Titán",
+};
+
+const LEVEL_COLORS: Record<number, string> = {
+  1: "text-ash", 2: "text-ash", 3: "text-ash", 4: "text-ember", 5: "text-ember",
+  6: "text-amber-500", 7: "text-amber-500", 8: "text-yellow-500", 9: "text-yellow-500", 10: "text-yellow-500",
+};
 
 interface LeaderboardTableProps {
   users: User[];
@@ -76,7 +86,14 @@ export function LeaderboardTable({ users }: LeaderboardTableProps) {
                       {user.points.toLocaleString()}
                     </Badge>
                   </td>
-                  <td className="px-4 py-4 text-right text-parchment">{user.level}</td>
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className={LEVEL_COLORS[user.level] || "text-parchment"}>
+                        {LEVEL_TITLES[user.level] || `Nivel ${user.level}`}
+                      </span>
+                      <span className="text-xs text-ash">({user.level})</span>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
