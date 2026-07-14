@@ -21,13 +21,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const { createClient } = await import("@/lib/supabase/server");
     const supabase = await createClient();
-    const { data: pages } = await supabase
+    const { data } = await supabase
       .from("pages")
       .select("id, updated_at")
       .order("updated_at", { ascending: false })
       .limit(500);
 
-    const toolPages: MetadataRoute.Sitemap = (pages || []).map((page) => ({
+    const pages = (data || []) as { id: string; updated_at: string }[];
+    const toolPages: MetadataRoute.Sitemap = pages.map((page) => ({
       url: `${baseUrl}/es/page/${page.id}`,
       lastModified: new Date(page.updated_at),
       changeFrequency: "weekly" as const,
