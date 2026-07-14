@@ -11,9 +11,9 @@ let supabaseServicePromise: Promise<any> | null = null;
 async function getSupabaseService(): Promise<any> {
   if (supabaseServicePromise) return supabaseServicePromise;
   if (typeof window === "undefined") {
-    supabaseServicePromise = import(/* webpackIgnore: true */ "./supabase-server").then((mod) => mod.getSupabaseService());
+    supabaseServicePromise = import(/* webpackIgnore: true */ "./supabase-server").then((mod) => mod.getSupabaseService()).catch(() => null);
   } else {
-    supabaseServicePromise = import("./supabase-client").then((mod) => mod.supabaseService);
+    supabaseServicePromise = import("./supabase-client").then((mod) => mod.supabaseService).catch(() => null);
   }
   return supabaseServicePromise;
 }
@@ -50,7 +50,11 @@ export async function getPages(params?: {
 }
 
 export async function getPage(id: string): Promise<Page | undefined> {
-  return useSupabase() ? (await getSupabaseService()).getPage(id) : mock.getPage(id);
+  if (useSupabase()) {
+    const service = await getSupabaseService();
+    if (service) return service.getPage(id);
+  }
+  return mock.getPage(id);
 }
 
 export async function createPage(data: Partial<Page>): Promise<Page> {
