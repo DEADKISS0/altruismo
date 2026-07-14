@@ -128,22 +128,25 @@ export function PageViewer({ page }: PageViewerProps) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
+  const hasFileUrl = Boolean(page.file_url && page.file_url.length > 0);
+  const hasSourceCode = Boolean(page.source_code && page.source_code.length > 0);
+
   const toolUrl = useMemo(() => {
-    if (page.file_url && page.file_url.length > 0) return page.file_url;
-    if (page.source_code && page.source_code.length > 0) {
+    if (hasFileUrl) return page.file_url;
+    if (hasSourceCode) {
       try {
-        const blob = new Blob([page.source_code], { type: "text/html" });
+        const blob = new Blob([page.source_code!], { type: "text/html" });
         return URL.createObjectURL(blob);
       } catch { return null; }
     }
     return null;
-  }, [page.file_url, page.source_code]);
+  }, [hasFileUrl, hasSourceCode, page.file_url, page.source_code]);
 
   useEffect(() => {
-    if (!page.file_url && !page.source_code) {
+    if (!hasFileUrl && !hasSourceCode) {
       setToolError(true);
     }
-  }, [page.file_url, page.source_code]);
+  }, [hasFileUrl, hasSourceCode]);
 
   useEffect(() => {
     if (!isOwnPage) {
@@ -294,7 +297,11 @@ export function PageViewer({ page }: PageViewerProps) {
                 {toolError && !toolUrl ? (
                   <div className="w-full h-[600px] flex items-center justify-center text-ash flex-col gap-4">
                     <p>{messages.page.error}</p>
-                    <p className="text-sm">El desarrollador no incluyó el archivo fuente.</p>
+                    <p className="text-sm">No se encontró el archivo de la herramienta.</p>
+                    <pre className="text-xs text-ash/50 max-w-md overflow-hidden">
+                      file_url: {page.file_url || 'null'}{', '}
+                      source_code: {page.source_code ? page.source_code.length + ' chars' : 'null'}
+                    </pre>
                   </div>
                 ) : !toolUrl ? (
                   <div className="w-full h-[600px] flex items-center justify-center text-ash">
@@ -307,7 +314,6 @@ export function PageViewer({ page }: PageViewerProps) {
                     className="w-full h-[600px] border-0"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     title={page.title}
-                    onLoad={() => setToolError(false)}
                   />
                 )}
               </CardContent>
