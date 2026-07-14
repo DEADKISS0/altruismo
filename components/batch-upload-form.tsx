@@ -212,8 +212,8 @@ export function BatchUploadForm({ onSuccess }: BatchUploadFormProps) {
                     <div>
                       <Label className="text-xs text-ash">Categoría</Label>
                       <Select
-                        value={item.category}
-                        onValueChange={(v) => updateItem(item.id, "category", v)}
+                        value={item.category || undefined}
+                        onValueChange={(v) => updateItem(item.id, "category", v || "")}
                         disabled={item.status !== "pending"}
                       >
                         <SelectTrigger className="bg-pitch border-border text-parchment h-8 text-sm">

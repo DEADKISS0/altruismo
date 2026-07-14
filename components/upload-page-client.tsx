@@ -284,8 +284,8 @@ function BatchUploadForm({ onSuccess }: { onSuccess?: () => void }) {
                       disabled={item.status !== "pending"}
                     />
                     <Select
-                      value={item.category}
-                      onValueChange={(v) => updateItem(item.id, "category", v)}
+                      value={item.category || undefined}
+                      onValueChange={(v) => updateItem(item.id, "category", v || "")}
                       disabled={item.status !== "pending"}
                     >
                       <SelectTrigger className="bg-pitch border-border text-parchment h-9">
