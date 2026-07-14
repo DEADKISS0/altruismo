@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Page, Comment } from "@/types";
 import { useLocale } from "@/components/locale-provider";
@@ -124,20 +124,23 @@ export function PageViewer({ page }: PageViewerProps) {
   const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source">("tool");
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [toolUrl, setToolUrl] = useState<string | null>(null);
   const [toolError, setToolError] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  useEffect(() => {
-    if (page.file_url && page.file_url.length > 0) {
-      setToolUrl(page.file_url);
-    } else if (page.source_code && page.source_code.length > 0) {
+  const toolUrl = useMemo(() => {
+    if (page.file_url && page.file_url.length > 0) return page.file_url;
+    if (page.source_code && page.source_code.length > 0) {
       try {
         const blob = new Blob([page.source_code], { type: "text/html" });
-        setToolUrl(URL.createObjectURL(blob));
-      } catch { setToolError(true); }
-    } else {
+        return URL.createObjectURL(blob);
+      } catch { return null; }
+    }
+    return null;
+  }, [page.file_url, page.source_code]);
+
+  useEffect(() => {
+    if (!page.file_url && !page.source_code) {
       setToolError(true);
     }
   }, [page.file_url, page.source_code]);
