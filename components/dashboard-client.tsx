@@ -6,8 +6,6 @@ import { useLocale } from "@/components/locale-provider";
 import { useAuth } from "@/components/auth-provider";
 import { User, Page } from "@/types";
 import { PageCard } from "@/components/page-card";
-import { UploadForm } from "@/components/upload-form";
-import { BatchUploadForm } from "@/components/batch-upload-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,12 +63,6 @@ export function DashboardClient({ user, pages: initialPages, locale }: Dashboard
     }
   };
 
-  const handleUploadSuccess = () => {
-    getPages({ authorId: user.id }).then(setPages);
-    setActiveTab("tools");
-    toast.success(messages.dashboard.published);
-  };
-
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
@@ -122,7 +114,7 @@ export function DashboardClient({ user, pages: initialPages, locale }: Dashboard
             {messages.dashboard.tabs.tools}
           </TabsTrigger>
           <TabsTrigger value="upload" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
-            {messages.dashboard.tabs.upload}
+            Subir herramienta
           </TabsTrigger>
           <TabsTrigger value="analytics" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
             {messages.dashboard.tabs.analytics}
@@ -198,14 +190,15 @@ export function DashboardClient({ user, pages: initialPages, locale }: Dashboard
         </TabsContent>
 
         <TabsContent value="upload" className="space-y-6">
-          <h2 className="font-heading text-3xl text-parchment">{messages.dashboard.batchUpload}</h2>
-          <p className="text-ash">{messages.dashboard.batchUploadDesc}</p>
-          <BatchUploadForm onSuccess={handleUploadSuccess} />
-          <div className="border-t border-border pt-6 mt-6">
-            <h3 className="font-heading text-xl text-parchment mb-3">
-              {locale === "es" ? "Subida individual" : "Single upload"}
-            </h3>
-            <UploadForm onSuccess={handleUploadSuccess} />
+          <div className="text-center py-12">
+            <h2 className="font-heading text-3xl text-parchment mb-4">Subir herramienta</h2>
+            <p className="text-ash mb-6">Subí una o varias herramientas a la plataforma.</p>
+            <Link href={`/${locale}/upload`}>
+              <Button className="bg-ember text-parchment hover:bg-ember/90">
+                <Upload className="mr-2 h-4 w-4" />
+                Ir a subir herramienta
+              </Button>
+            </Link>
           </div>
         </TabsContent>
 
