@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Page } from "@/types";
-import { getPage } from "@/lib/services";
 import { PageViewer } from "@/components/page-viewer";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -15,10 +14,30 @@ export function PageViewerClient({ id }: PageViewerClientProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getPage(id).then((p) => {
-      setPage(p || null);
-      setLoading(false);
-    });
+    setLoading(true);
+    fetch(`/api/page-debug/${id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.found && data.page) {
+          const p = data.page;
+          setPage({
+            id: p.id,
+            author_id: p.author_id,
+            title: p.title,
+            description: p.description,
+            category: null,
+            file_url: p.file_url || "",
+            is_open_source: p.is_open_source || false,
+            source_code: p.source_code || null,
+            views: p.views || 0,
+            average_rating: Number(p.average_rating) || 0,
+            created_at: p.created_at,
+            tags: [],
+          });
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [id]);
 
   if (loading) {

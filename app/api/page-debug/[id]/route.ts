@@ -11,22 +11,30 @@ export async function GET(
     const supabase = await createClient();
     const { data } = await supabase
       .from("pages")
-      .select("id, title, file_url, source_code")
+      .select("id, author_id, title, description, file_url, source_code, is_open_source, views, average_rating, created_at, category_id")
       .eq("id", id)
       .limit(1);
 
-    const rows = (data || []) as { id: string; title: string; file_url: string | null; source_code: string | null }[];
+    const rows = (data || []) as any[];
     const page = rows.length > 0 ? rows[0] : null;
 
     return NextResponse.json({
-      id,
       found: !!page,
-      hasFileUrl: !!page?.file_url,
-      fileUrl: page?.file_url?.substring(0, 50) || null,
-      hasSourceCode: !!page?.source_code,
-      sourceCodeLength: page?.source_code?.length || 0,
+      page: page ? {
+        id: page.id,
+        author_id: page.author_id,
+        title: page.title,
+        description: page.description,
+        file_url: page.file_url,
+        source_code: page.source_code,
+        is_open_source: page.is_open_source,
+        views: page.views,
+        average_rating: page.average_rating,
+        created_at: page.created_at,
+        category_id: page.category_id,
+      } : null,
     });
   } catch (error) {
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json({ error: String(error), found: false }, { status: 200 });
   }
 }
