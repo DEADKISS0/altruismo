@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import type { Database } from "@/types/database";
 
 export async function DELETE(
   request: NextRequest,
@@ -20,8 +21,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Page not found" }, { status: 404 });
     }
 
-    if (page.file_url) {
-      const urlParts = page.file_url.split("/");
+    const pageRow = page as Database["public"]["Tables"]["pages"]["Row"];
+    if (pageRow.file_url) {
+      const urlParts = pageRow.file_url.split("/");
       const bucketIndex = urlParts.findIndex((p) => p === "pages");
       if (bucketIndex !== -1 && bucketIndex + 1 < urlParts.length) {
         const storagePath = urlParts.slice(bucketIndex + 1).join("/");

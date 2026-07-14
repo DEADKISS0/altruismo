@@ -20,7 +20,7 @@ const customAxe = configureAxe({
   resultTypes: ['violations', 'incomplete'],
 });
 
-global.customAxe = customAxe;
+(global as any).customAxe = customAxe;
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
