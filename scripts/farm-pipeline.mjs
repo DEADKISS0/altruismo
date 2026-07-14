@@ -204,13 +204,13 @@ async function callLLM(prompt) {
     res = await fetch(LLM.url, {
       method: 'POST',
       headers: { 'x-api-key': LLM.key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: LLM.model, system, messages: [userMessage], temperature: 0.7, max_tokens: 8000 }),
+      body: JSON.stringify({ model: LLM.model, system, messages: [userMessage], temperature: 0.7, max_tokens: 3000 }),
     });
   } else {
     res = await fetch(LLM.url, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LLM.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: LLM.model, messages: [{ role: 'system', content: system }, userMessage], temperature: 0.7, max_tokens: 8000 }),
+      body: JSON.stringify({ model: LLM.model, messages: [{ role: 'system', content: system }, userMessage], temperature: 0.7, max_tokens: 3000 }),
     });
   }
 
