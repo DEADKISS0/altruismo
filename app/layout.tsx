@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Inter, IBM_Plex_Mono, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 
@@ -41,10 +41,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${ibmPlexMono.variable} ${bebasNeue.variable}`}>
+    <!-- deploy --><html lang="es" className={`${inter.variable} ${ibmPlexMono.variable} ${bebasNeue.variable}`}>
       <body className="min-h-screen bg-pitch text-parchment font-sans antialiased">
         {children}
       </body>
     </html>
   );
 }
+
