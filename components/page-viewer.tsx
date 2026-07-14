@@ -155,9 +155,16 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
   }, [page.source_code]);
 
   const toolUrl = useMemo(() => {
+    // Prefer source_code blob URL (avoids Content-Type issues with Supabase Storage)
+    if (page.source_code && page.source_code.length > 0) {
+      try {
+        const blob = new Blob([page.source_code], { type: "text/html" });
+        return URL.createObjectURL(blob);
+      } catch { /* fall through to file_url */ }
+    }
     if (page.file_url && page.file_url.length > 0) return page.file_url;
     return null;
-  }, [page.file_url]);
+  }, [page.source_code, page.file_url]);
 
   useEffect(() => {
     if (!isOwnPage) {
@@ -175,6 +182,15 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
       setIsBookmarked(bookmarks.includes(page.id));
     } catch {}
   }, [page.author_id, page.id, isOwnPage]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (toolUrl && toolUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(toolUrl);
+      }
+    };
+  }, [toolUrl]);
 
   const handleFollow = async () => {
     if (!user || following === null) return;
