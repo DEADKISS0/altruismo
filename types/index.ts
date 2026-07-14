@@ -106,6 +106,21 @@ export interface Achievement {
   earned_at: string;
 }
 
+export interface Review {
+  id: string;
+  page_id: string;
+  user_id: string;
+  user?: User;
+  rating: number;
+  content: string | null;
+  created_at: string;
+}
+
+export interface RatingDistribution {
+  rating: number;
+  count: number;
+}
+
 export interface CategoryLabel {
   value: PageCategory;
   label: string;

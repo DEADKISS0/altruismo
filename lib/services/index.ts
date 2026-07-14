@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution } from "@/types";
 import * as mock from "./mock-service";
 import { isSupabaseServiceConfigured } from "./supabase-config";
 
@@ -232,6 +232,24 @@ export async function getAchievements(userId: string): Promise<Achievement[]> {
   return useSupabase()
     ? (await getSupabaseService()).getAchievements(userId)
     : mock.getAchievements(userId);
+}
+
+export async function getReviews(pageId: string): Promise<Review[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getReviews(pageId)
+    : mock.getReviews(pageId);
+}
+
+export async function addReview(pageId: string, rating: number, content?: string): Promise<Review> {
+  return useSupabase()
+    ? (await getSupabaseService()).addReview(pageId, rating, content)
+    : mock.addReview(pageId, rating, content);
+}
+
+export async function getRatingDistribution(pageId: string): Promise<RatingDistribution[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getRatingDistribution(pageId)
+    : mock.getRatingDistribution(pageId);
 }
 
 export async function awardBadge(userId: string, badgeType: string): Promise<void> {

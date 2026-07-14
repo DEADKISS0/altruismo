@@ -423,6 +423,40 @@ export async function getAchievements(userId: string): Promise<Achievement[]> {
   return mockAchievements.filter((a) => a.user_id === userId);
 }
 
+let mockReviews: any[] = [];
+
+export async function getReviews(pageId: string): Promise<Review[]> {
+  return mockReviews.filter(r => r.page_id === pageId);
+}
+
+export async function addReview(pageId: string, rating: number, content?: string): Promise<Review> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("No current user");
+  const existing = mockReviews.findIndex(r => r.page_id === pageId && r.user_id === user.id);
+  const review: Review = {
+    id: `review-${Date.now()}`,
+    page_id: pageId,
+    user_id: user.id,
+    user,
+    rating,
+    content: content || null,
+    created_at: new Date().toISOString(),
+  };
+  if (existing >= 0) {
+    mockReviews[existing] = review;
+  } else {
+    mockReviews.push(review);
+  }
+  return review;
+}
+
+export async function getRatingDistribution(pageId: string): Promise<RatingDistribution[]> {
+  const reviews = mockReviews.filter(r => r.page_id === pageId);
+  const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  reviews.forEach(r => { counts[r.rating] = (counts[r.rating] || 0) + 1; });
+  return Object.entries(counts).map(([k, v]) => ({ rating: Number(k), count: v }));
+}
+
 export async function awardBadge(userId: string, badgeType: string): Promise<void> {
   const exists = mockAchievements.some(
     (a) => a.user_id === userId && a.badge_type === badgeType

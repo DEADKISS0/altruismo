@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution } from "@/types";
 
 const PAGES_BUCKET = "pages";
 
@@ -538,6 +538,52 @@ export function createService(supabase: any) {
     });
     if (error) throw error;
     return data;
+  }
+
+  async function getReviews(pageId: string): Promise<Review[]> {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*, user:profiles(*)")
+      .eq("page_id", pageId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      page_id: row.page_id,
+      user_id: row.user_id,
+      user: row.user ? { id: row.user.id, email: row.user.email, name: row.user.name, avatar_url: row.user.avatar_url, bio: row.user.bio, role: row.user.role, points: row.user.points, level: row.user.level, created_at: row.user.created_at } : undefined,
+      rating: row.rating,
+      content: row.content,
+      created_at: row.created_at,
+    }));
+  }
+
+  async function addReview(pageId: string, rating: number, content?: string): Promise<Review> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) throw new Error("No current user");
+    const { data, error } = await supabase
+      .from("reviews")
+      .upsert({ page_id: pageId, user_id: currentUser.id, rating, content: content || null }, { onConflict: "page_id,user_id" })
+      .select("*, user:profiles(*)")
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id, page_id: data.page_id, user_id: data.user_id,
+      user: data.user ? { id: data.user.id, email: data.user.email, name: data.user.name, avatar_url: data.user.avatar_url, bio: data.user.bio, role: data.user.role, points: data.user.points, level: data.user.level, created_at: data.user.created_at } : undefined,
+      rating: data.rating, content: data.content, created_at: data.created_at,
+    };
+  }
+
+  async function getRatingDistribution(pageId: string): Promise<RatingDistribution[]> {
+    const { data, error } = await supabase.rpc("get_rating_distribution", { p_page_id: pageId });
+    if (error) {
+      // Fallback: compute from reviews
+      const { data: reviews } = await supabase.from("reviews").select("rating").eq("page_id", pageId);
+      const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      (reviews || []).forEach((r: any) => { counts[r.rating] = (counts[r.rating] || 0) + 1; });
+      return Object.entries(counts).map(([k, v]) => ({ rating: Number(k), count: v }));
+    }
+    return (data || []).map((row: any) => ({ rating: row.rating, count: row.count }));
   }
 
   async function getAchievements(userId: string): Promise<Achievement[]> {

@@ -38,7 +38,11 @@ import {
   isPageLiked,
   togglePageLike,
   incrementPageViews,
+  getReviews,
+  addReview,
+  getRatingDistribution,
 } from "@/lib/services";
+import type { Review, RatingDistribution } from "@/types";
 import { toast } from "sonner";
 
 interface Challenge {
@@ -135,9 +139,13 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
   const [newComment, setNewComment] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
-  const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source" | "challenges">("tool");
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [ratingDist, setRatingDist] = useState<RatingDistribution[]>([]);
+  const [newReview, setNewReview] = useState("");
+  const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source" | "challenges" | "reviews">("tool");
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [toolUrl, setToolUrl] = useState<string | null>(null);
   const [toolError, setToolError] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -160,6 +168,8 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
     getPageLikes(page.id).then(setLikes);
     isPageLiked(page.id).then(setLiked);
     incrementPageViews(page.id).catch(() => {});
+    getReviews(page.id).then(setReviews).catch(() => {});
+    getRatingDistribution(page.id).then(setRatingDist).catch(() => {});
     // Check bookmark from localStorage
     try {
       const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]");
@@ -246,6 +256,27 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
     }
   };
 
+  const handleSubmitReview = async () => {
+    if (!user || !rating) return;
+    try {
+      const review = await addReview(page.id, rating, newReview);
+      setReviews(prev => {
+        const exists = prev.findIndex(r => r.user_id === user.id);
+        if (exists >= 0) {
+          const updated = [...prev];
+          updated[exists] = review;
+          return updated;
+        }
+        return [review, ...prev];
+      });
+      setNewReview("");
+      getRatingDistribution(page.id).then(setRatingDist).catch(() => {});
+      toast.success(messages.common.success);
+    } catch {
+      toast.error(messages.common.error);
+    }
+  };
+
   const handleLike = async () => {
     if (!user) {
       toast.error(messages.nav.login);
@@ -303,6 +334,14 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
                     Retos ({challenges.length})
                   </Button>
                 )}
+                <Button
+                  variant={activeTab === "reviews" ? "default" : "outline"}
+                  onClick={() => setActiveTab("reviews")}
+                  className={activeTab === "reviews" ? "bg-ember text-parchment" : ""}
+                >
+                  <Star className="mr-2 h-4 w-4" />
+                  {t.rating} ({reviews.length})
+                </Button>
               </div>
 
           {activeTab === "tool" && (
@@ -458,6 +497,84 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
               </CardContent>
             </Card>
           )}
+
+          {activeTab === "reviews" && (
+            <Card className="bg-card border-border">
+              <CardContent className="p-6 space-y-4">
+                <h3 className="font-heading text-2xl text-parchment">{t.rating}</h3>
+                
+                {/* Rating distribution */}
+                {ratingDist.length > 0 && (
+                  <div className="space-y-1.5">
+                    {[5, 4, 3, 2, 1].map((star) => {
+                      const dist = ratingDist.find(r => r.rating === star);
+                      const count = dist?.count || 0;
+                      const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                      return (
+                        <div key={star} className="flex items-center gap-2 text-sm">
+                          <span className="text-ash w-4 text-right">{star}</span>
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          <div className="flex-1 h-2 bg-void rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-ash w-6 text-right">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Average */}
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <Star key={v} className={`h-6 w-6 ${v <= Math.round(page.average_rating) ? "fill-amber-400 text-amber-400" : "fill-transparent text-ash"}`} />
+                    ))}
+                  </div>
+                  <span className="text-ash">{page.average_rating.toFixed(1)} / 5 ({reviews.length})</span>
+                </div>
+
+                {/* Write review */}
+                {user && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((v) => (
+                        <button key={v} onClick={() => setRating(v)} className="hover:scale-110 transition-transform">
+                          <Star className={`h-6 w-6 ${v <= rating ? "fill-amber-400 text-amber-400" : "fill-transparent text-ash"}`} />
+                        </button>
+                      ))}
+                    </div>
+                    <Textarea value={newReview} onChange={(e) => setNewReview(e.target.value)} placeholder={locale === "es" ? "Escribe tu reseña..." : "Write your review..."} className="bg-pitch border-border text-parchment text-sm" rows={2} />
+                    <Button size="sm" onClick={handleSubmitReview} disabled={!rating} className="bg-ember text-parchment hover:bg-ember/90">
+                      {locale === "es" ? "Enviar reseña" : "Submit review"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Reviews list */}
+                {reviews.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="bg-void/50 border border-border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={review.user?.avatar_url || ""} />
+                            <AvatarFallback className="bg-pitch text-xs">{review.user?.name?.charAt(0) || "?"}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium text-parchment">{review.user?.name}</span>
+                          <div className="flex gap-0.5 ml-auto">
+                            {[1,2,3,4,5].map(s => <Star key={s} className={`h-3 w-3 ${s <= review.rating ? "fill-amber-400 text-amber-400" : "fill-transparent text-ash"}`} />)}
+                          </div>
+                        </div>
+                        {review.content && <p className="text-sm text-ash">{review.content}</p>}
+                        <p className="text-xs text-ash/50 mt-1">{new Date(review.created_at).toLocaleDateString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -555,25 +672,97 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
           <Card className="bg-card border-border">
             <CardContent className="p-6 space-y-4">
               <h3 className="font-heading text-2xl text-parchment">{t.rating}</h3>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
-                    key={value}
-                    onClick={() => handleRating(value)}
-                    aria-label={`${value} ${locale === "es" ? "estrellas" : "stars"}`}
-                    className="text-ember hover:scale-110 transition-transform"
-                  >
-                    <Star
-                      className={`h-8 w-8 ${
-                        value <= rating ? "fill-ember" : "fill-transparent"
-                      }`}
-                    />
-                  </button>
-                ))}
+              
+              {/* Rating distribution bars */}
+              {ratingDist.length > 0 && (
+                <div className="space-y-1.5">
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const dist = ratingDist.find(r => r.rating === star);
+                    const count = dist?.count || 0;
+                    const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                    return (
+                      <div key={star} className="flex items-center gap-2 text-sm">
+                        <span className="text-ash w-4 text-right">{star}</span>
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        <div className="flex-1 h-2 bg-void rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-ash w-6 text-right">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Average rating */}
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => handleRating(value)}
+                      aria-label={`${value} ${locale === "es" ? "estrellas" : "stars"}`}
+                      className="text-ember hover:scale-110 transition-transform"
+                    >
+                      <Star className={`h-6 w-6 ${value <= (rating || Math.round(page.average_rating)) ? "fill-ember" : "fill-transparent"}`} />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-ash">
+                  {page.average_rating.toFixed(1)} / 5 ({reviews.length} {reviews.length === 1 ? "review" : "reviews"})
+                </span>
               </div>
-              <p className="text-ash">
-                {page.average_rating.toFixed(1)} / 5 ({commentsCount} {messages.page.comments})
-              </p>
+
+              {/* Add review form */}
+              {user && (
+                <div className="space-y-2">
+                  <Textarea
+                    value={newReview}
+                    onChange={(e) => setNewReview(e.target.value)}
+                    placeholder={locale === "es" ? "Escribe tu reseña (opcional)..." : "Write your review (optional)..."}
+                    className="bg-pitch border-border text-parchment min-h-[60px] text-sm"
+                    rows={2}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSubmitReview}
+                    disabled={!rating}
+                    className="bg-ember text-parchment hover:bg-ember/90"
+                  >
+                    {locale === "es" ? "Enviar reseña" : "Submit review"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Reviews list */}
+              {reviews.length > 0 && (
+                <div className="space-y-3 mt-4">
+                  <h4 className="font-medium text-parchment text-sm">
+                    {locale === "es" ? "Reseñas" : "Reviews"} ({reviews.length})
+                  </h4>
+                  {reviews.slice(0, 5).map((review) => (
+                    <div key={review.id} className="bg-void/50 border border-border rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={review.user?.avatar_url || ""} />
+                          <AvatarFallback className="bg-pitch text-xs">{review.user?.name?.charAt(0) || "?"}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-parchment">{review.user?.name}</span>
+                        <div className="flex gap-0.5 ml-auto">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star key={s} className={`h-3 w-3 ${s <= review.rating ? "fill-amber-400 text-amber-400" : "fill-transparent text-ash"}`} />
+                          ))}
+                        </div>
+                      </div>
+                      {review.content && <p className="text-sm text-ash">{review.content}</p>}
+                      <p className="text-xs text-ash/50 mt-1">{new Date(review.created_at).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
