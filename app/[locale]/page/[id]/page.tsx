@@ -14,8 +14,9 @@ export default async function PageDetailPage({ params }: PageParams) {
       .eq("id", id)
       .limit(1);
 
-    if (data && data.length > 0) {
-      const p = data[0];
+    const rows = (data || []) as any[];
+    if (rows.length > 0) {
+      const p = rows[0];
       initialPage = {
         id: p.id,
         author_id: p.author_id,
