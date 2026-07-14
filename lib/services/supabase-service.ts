@@ -608,6 +608,55 @@ export function createService(supabase: any) {
     return awarded;
   }
 
+  async function logActivity(action: string, targetType: string, targetId: string, metadata?: Record<string, any>): Promise<void> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return;
+    await supabase.rpc("log_activity", {
+      p_user_id: currentUser.id,
+      p_action: action,
+      p_target_type: targetType,
+      p_target_id: targetId,
+      p_metadata: metadata || {},
+    });
+  }
+
+  async function getActivity(userId?: string, limit = 20): Promise<any[]> {
+    const { data, error } = await supabase.rpc("get_user_activity", {
+      p_user_id: userId || null,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getNotifications(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function markNotificationRead(notificationId: string): Promise<void> {
+    await supabase.from("notifications").update({ read: true }).eq("id", notificationId);
+  }
+
+  async function markAllNotificationsRead(userId: string): Promise<void> {
+    await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
+  }
+
+  async function getUnreadNotificationCount(userId: string): Promise<number> {
+    const { count } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("read", false);
+    return count || 0;
+  }
+
   async function toggleFeatured(pageId: string): Promise<boolean> {
     const { data: page } = await supabase.from("pages").select("is_featured").eq("id", pageId).single();
     if (!page) throw new Error("Page not found");
@@ -666,6 +715,12 @@ export function createService(supabase: any) {
     getAchievements,
     awardBadge,
     checkAndAwardBadges,
+    logActivity,
+    getActivity,
+    getNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    getUnreadNotificationCount,
   };
 }
 

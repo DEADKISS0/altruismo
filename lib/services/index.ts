@@ -242,6 +242,42 @@ export async function checkAndAwardBadges(userId: string): Promise<string[]> {
     : mock.checkAndAwardBadges(userId);
 }
 
+export async function logActivity(action: string, targetType: string, targetId: string, metadata?: Record<string, any>): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).logActivity(action, targetType, targetId, metadata)
+    : mock.logActivity(action, targetType, targetId, metadata);
+}
+
+export async function getActivity(userId?: string, limit = 20): Promise<any[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getActivity(userId, limit)
+    : mock.getActivity(userId, limit);
+}
+
+export async function getNotifications(userId: string): Promise<any[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getNotifications(userId)
+    : mock.getNotifications(userId);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).markNotificationRead(notificationId)
+    : mock.markNotificationRead(notificationId);
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).markAllNotificationsRead(userId)
+    : mock.markAllNotificationsRead(userId);
+}
+
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  return useSupabase()
+    ? (await getSupabaseService()).getUnreadNotificationCount(userId)
+    : mock.getUnreadNotificationCount(userId);
+}
+
 export function getCategories(): { value: PageCategory; label: string }[] {
   return [
     { value: "productivity", label: "Productividad" },

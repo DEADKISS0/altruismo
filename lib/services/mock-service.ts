@@ -445,6 +445,56 @@ export async function checkAndAwardBadges(userId: string): Promise<string[]> {
   return awarded;
 }
 
+let mockActivity: any[] = [];
+
+export async function logActivity(action: string, targetType: string, targetId: string, metadata?: Record<string, any>): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  mockActivity.unshift({
+    id: `act-${Date.now()}`,
+    user_id: user.id,
+    action,
+    target_type: targetType,
+    target_id: targetId,
+    metadata: metadata || {},
+    created_at: new Date().toISOString(),
+  });
+}
+
+export async function getActivity(userId?: string, limit = 20): Promise<any[]> {
+  let activities = userId
+    ? mockActivity.filter((a) => a.user_id === userId)
+    : mockActivity;
+  return activities.slice(0, limit).map((a) => {
+    const user = mockState.users.find((u) => u.id === a.user_id);
+    let targetTitle = "";
+    if (a.target_type === "page") {
+      const page = mockState.pages.find((p) => p.id === a.target_id);
+      targetTitle = page?.title || "";
+    }
+    return { ...a, user_name: user?.name, user_avatar: user?.avatar_url, target_title: targetTitle };
+  });
+}
+
+let mockNotifications: any[] = [];
+
+export async function getNotifications(userId: string): Promise<any[]> {
+  return mockNotifications.filter((n) => n.user_id === userId);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const n = mockNotifications.find((n) => n.id === notificationId);
+  if (n) n.read = true;
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  mockNotifications.forEach((n) => { if (n.user_id === userId) n.read = true; });
+}
+
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  return mockNotifications.filter((n) => n.user_id === userId && !n.read).length;
+}
+
 export function getCategories(): { value: PageCategory; label: string }[] {
   return [
     { value: "productivity", label: "Productividad" },
