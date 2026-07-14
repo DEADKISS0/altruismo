@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Menu, Flame, Globe, LogOut, User, BarChart3, Sun, Moon } from "lucide-react";
 import { locales, labels, Locale } from "@/lib/i18n/config";
+import { NotificationBell } from "@/components/notification-bell";
 import { useState, useEffect } from "react";
 
 function LanguageSwitcher() {
@@ -247,6 +248,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
           <ThemeToggle />
+          <NotificationBell />
           <Link href={`/${locale}/upload`}>
             <Tooltip>
               <TooltipTrigger
@@ -285,6 +287,10 @@ export function Navbar() {
                 <div className="flex items-center justify-between py-2 border-t border-border">
                   <span className="text-parchment">{locale === "es" ? "Modo oscuro" : "Dark mode"}</span>
                   <ThemeToggle />
+                </div>
+                <div className="flex items-center justify-between py-2 border-t border-border">
+                  <span className="text-parchment">{locale === "es" ? "Notificaciones" : "Notifications"}</span>
+                  <NotificationBell />
                 </div>
                 <Link href={`/${locale}/upload`} onClick={() => setMobileOpen(false)}>
                   <Button className="w-full bg-ember text-parchment">{t.upload}</Button>
