@@ -128,25 +128,15 @@ export function PageViewer({ page }: PageViewerProps) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  const hasFileUrl = Boolean(page.file_url && page.file_url.length > 0);
-  const hasSourceCode = Boolean(page.source_code && page.source_code.length > 0);
+  const toolHtml = useMemo(() => {
+    if (page.source_code && page.source_code.length > 0) return page.source_code;
+    return null;
+  }, [page.source_code]);
 
   const toolUrl = useMemo(() => {
-    if (hasFileUrl) return page.file_url;
-    if (hasSourceCode) {
-      try {
-        const blob = new Blob([page.source_code!], { type: "text/html" });
-        return URL.createObjectURL(blob);
-      } catch { return null; }
-    }
+    if (page.file_url && page.file_url.length > 0) return page.file_url;
     return null;
-  }, [hasFileUrl, hasSourceCode, page.file_url, page.source_code]);
-
-  useEffect(() => {
-    if (!hasFileUrl && !hasSourceCode) {
-      setToolError(true);
-    }
-  }, [hasFileUrl, hasSourceCode]);
+  }, [page.file_url]);
 
   useEffect(() => {
     if (!isOwnPage) {
@@ -294,23 +284,15 @@ export function PageViewer({ page }: PageViewerProps) {
           {activeTab === "tool" && (
             <Card className="bg-card border-border overflow-hidden relative">
               <CardContent className="p-0">
-                {toolError && !toolUrl ? (
+                {!toolUrl && !toolHtml ? (
                   <div className="w-full h-[600px] flex items-center justify-center text-ash flex-col gap-4">
                     <p>{messages.page.error}</p>
-                    <p className="text-sm">No se encontró el archivo de la herramienta.</p>
-                    <pre className="text-xs text-ash/50 max-w-md overflow-hidden">
-                      file_url: {page.file_url || 'null'}{', '}
-                      source_code: {page.source_code ? page.source_code.length + ' chars' : 'null'}
-                    </pre>
+                    <p className="text-sm">El desarrollador no incluyó el archivo fuente.</p>
                   </div>
-                ) : !toolUrl ? (
-                  <div className="w-full h-[600px] flex items-center justify-center text-ash">
-                    {messages.page.loading}
-                  </div>
-                ) : null}
-                {toolUrl && (
+                ) : (
                   <iframe
-                    src={toolUrl}
+                    src={toolUrl || undefined}
+                    srcDoc={toolHtml || undefined}
                     className="w-full h-[600px] border-0"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     title={page.title}
