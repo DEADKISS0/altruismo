@@ -352,8 +352,6 @@ export default function UploadPageClient() {
   const router = useRouter();
   const [mode, setMode] = useState<"choose" | "single" | "batch">("choose");
 
-  // Version marker for cache busting
-
   const handleSuccess = () => {
     router.push(`/${locale}/feed`);
   };
@@ -362,7 +360,7 @@ export default function UploadPageClient() {
     return (
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <h1 className="font-heading text-4xl md:text-5xl text-parchment mb-3 text-center">
-          {locale === "es" ? "SUBIR HERRAMIENTA v2" : "UPLOAD TOOL"}
+          {locale === "es" ? "SUBIR HERRAMIENTA" : "UPLOAD TOOL"}
         </h1>
         <p className="text-ash text-center mb-10">
           {locale === "es"
@@ -428,3 +426,4 @@ export default function UploadPageClient() {
 
 
 // v2 20260714054659
+
