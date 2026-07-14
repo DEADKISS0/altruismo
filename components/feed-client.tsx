@@ -5,9 +5,9 @@ import { useLocale } from "@/components/locale-provider";
 import { PageCard } from "@/components/page-card";
 import { SearchBar } from "@/components/search-bar";
 import { CategoryFilter } from "@/components/category-filter";
-import { PageCategory, Page } from "@/types";
-import { getPages } from "@/lib/services";
-import { Search, FilterX, Sparkles, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { PageCategory, Page, Tag } from "@/types";
+import { getPages, getTags } from "@/lib/services";
+import { Search, FilterX, Sparkles, ChevronLeft, ChevronRight, ArrowUpDown, Tag as TagIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,7 +27,10 @@ export function FeedClient({ initialPages }: FeedClientProps) {
   const { messages } = useLocale();
   const t = messages.feed;
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState<PageCategory | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -36,48 +39,83 @@ export function FeedClient({ initialPages }: FeedClientProps) {
 
   const isInitialMount = useRef(true);
 
+  // Load tags
+  useEffect(() => {
+    getTags().then(setAvailableTags).catch(() => {});
+  }, []);
+
+  // Debounce search
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      getPages({ category, search }).then(setPages).catch(() => {});
       return;
     }
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fetch pages when filters change
+  useEffect(() => {
+    if (isInitialMount.current) return;
     setHasSearched(true);
     setIsLoading(true);
     setCurrentPage(1);
-    getPages({ category, search }).then((data) => {
+    getPages({ category, search: debouncedSearch }).then((data) => {
       setPages(data);
       setIsLoading(false);
     }).catch(() => {
       setIsLoading(false);
     });
-  }, [category, search]);
+  }, [category, debouncedSearch]);
 
   const clearFilters = () => {
     setSearch("");
+    setDebouncedSearch("");
     setCategory(null);
+    setSelectedTags([]);
     setHasSearched(false);
     setCurrentPage(1);
   };
 
-  const sortedPages = useMemo(() => {
-    const sorted = [...pages];
+  const toggleTag = (tagName: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tagName)
+        ? prev.filter(t => t !== tagName)
+        : [...prev, tagName]
+    );
+    setCurrentPage(1);
+  };
+
+  // Sort and filter pages
+  const filteredPages = useMemo(() => {
+    let filtered = [...pages];
+    
+    // Filter by selected tags
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(page => 
+        page.tags?.some(tag => selectedTags.includes(tag.name))
+      );
+    }
+
+    // Sort
     switch (sortBy) {
       case "popular":
-        return sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
+        return filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
       case "rating":
-        return sorted.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+        return filtered.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
       case "recent":
       default:
-        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
-  }, [pages, sortBy]);
+  }, [pages, sortBy, selectedTags]);
 
-  const totalPages = Math.ceil(sortedPages.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredPages.length / ITEMS_PER_PAGE);
   const paginatedPages = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return sortedPages.slice(start, start + ITEMS_PER_PAGE);
-  }, [sortedPages, currentPage]);
+    return filteredPages.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredPages, currentPage]);
 
   return (
     <div className="container mx-auto px-4 py-12 fade-in">
@@ -85,7 +123,7 @@ export function FeedClient({ initialPages }: FeedClientProps) {
         <h1 className="font-heading text-5xl md:text-6xl text-parchment">
           {t.title}
         </h1>
-        {(search || category) && (
+        {(search || category || selectedTags.length > 0) && (
           <Button
             variant="ghost"
             size="sm"
@@ -99,6 +137,7 @@ export function FeedClient({ initialPages }: FeedClientProps) {
       </div>
 
       <div className="space-y-6 mb-10">
+        {/* Search + Sort */}
         <div className="flex gap-4 items-center">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash" />
@@ -116,7 +155,47 @@ export function FeedClient({ initialPages }: FeedClientProps) {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Category Filter */}
         <CategoryFilter selected={category} onChange={setCategory} />
+
+        {/* Tag Filter */}
+        {availableTags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <span className="flex items-center gap-1 text-sm text-ash mr-2">
+              <TagIcon className="h-3 w-3" /> Tags:
+            </span>
+            {availableTags.slice(0, 12).map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => toggleTag(tag.name)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  selectedTags.includes(tag.name)
+                    ? "bg-ember text-white"
+                    : "bg-pitch border border-border text-ash hover:border-ember hover:text-ember"
+                }`}
+              >
+                {tag.name}
+                {selectedTags.includes(tag.name) && <X className="h-3 w-3 ml-1 inline" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Active filters summary */}
+        {selectedTags.length > 0 && (
+          <div className="flex items-center gap-2 text-sm text-ash">
+            <span>Filtrando por:</span>
+            {selectedTags.map(tag => (
+              <span key={tag} className="bg-ember/20 text-ember px-2 py-1 rounded-full text-xs flex items-center gap-1">
+                {tag}
+                <button onClick={() => toggleTag(tag)} className="hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -128,7 +207,7 @@ export function FeedClient({ initialPages }: FeedClientProps) {
             />
           ))}
         </div>
-      ) : paginatedPages.length > 0 ? (
+      ) : filteredPages.length > 0 ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {paginatedPages.map((page, index) => (
