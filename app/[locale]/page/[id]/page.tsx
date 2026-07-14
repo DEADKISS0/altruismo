@@ -1,6 +1,34 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageViewerClient } from "@/components/page-viewer-client";
+import { ToolStructuredData } from "@/components/structured-data";
 import { PageParams } from "@/types";
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("pages")
+      .select("title, description")
+      .eq("id", id)
+      .limit(1);
+    const rows = (data || []) as any[];
+    if (rows.length > 0) {
+      const p = rows[0];
+      return {
+        title: p.title,
+        description: p.description || "Herramienta web interactiva",
+        openGraph: {
+          title: p.title,
+          description: p.description || "Herramienta web interactiva",
+          type: "website",
+        },
+      };
+    }
+  } catch {}
+  return { title: "Herramienta no encontrada" };
+}
 
 export default async function PageDetailPage({ params }: PageParams) {
   const { id } = await params;
@@ -68,5 +96,10 @@ export default async function PageDetailPage({ params }: PageParams) {
     console.error("Error fetching page:", e);
   }
 
-  return <PageViewerClient id={id} initialPage={initialPage} initialChallenges={initialChallenges} />;
+  return (
+    <>
+      {initialPage && <ToolStructuredData page={initialPage} />}
+      <PageViewerClient id={id} initialPage={initialPage} initialChallenges={initialChallenges} />
+    </>
+  );
 }
