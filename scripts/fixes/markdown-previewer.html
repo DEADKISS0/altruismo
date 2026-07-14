@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Previewer — Altruismo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0F0F0F; --surface: #1A1A1A; --surface-2: #252525; --text: #F5E6D3;
+      --text-dim: #B8A99A; --accent: #CE3D1F; --accent-hover: #E34D2C;
+      --border: #333333; --radius: 12px; --font-mono: 'JetBrains Mono', monospace;
+      --font-ui: 'Inter', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-ui); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 1rem; text-align: center; border-bottom: 1px solid var(--border); background: var(--surface); }
+    h1 { font-size: clamp(1.1rem, 3vw, 1.5rem); }
+    h1 span { color: var(--accent); }
+    .toolbar { display: flex; gap: 0.25rem; padding: 0.5rem; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; justify-content: center; }
+    .btn {
+      padding: 0.4rem 0.7rem; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--surface-2); color: var(--text); font-family: inherit;
+      font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .editor-wrap { flex: 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+    @media (max-width: 768px) { .editor-wrap { grid-template-columns: 1fr; } .preview-pane { border-left: none; border-top: 1px solid var(--border); } }
+    .pane { display: flex; flex-direction: column; min-height: 0; }
+    .pane-header { padding: 0.5rem 0.75rem; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.7rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .editor-pane { border-right: 1px solid var(--border); }
+    textarea { flex: 1; border: none; outline: none; resize: none; background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6; padding: 1rem; tab-size: 2; }
+    .preview-pane { overflow-y: auto; background: var(--bg); }
+    .preview-content { padding: 1.5rem; max-width: 800px; margin: 0 auto; line-height: 1.7; }
+    .preview-content h1, .preview-content h2, .preview-content h3, .preview-content h4 { color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    .preview-content h1 { font-size: 1.8rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    .preview-content h2 { font-size: 1.4rem; color: var(--accent); }
+    .preview-content h3 { font-size: 1.15rem; }
+    .preview-content p { margin: 0.75rem 0; }
+    .preview-content a { color: var(--accent); text-decoration: none; }
+    .preview-content a:hover { text-decoration: underline; }
+    .preview-content code { font-family: var(--font-mono); background: var(--surface-2); padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.9em; }
+    .preview-content pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+    .preview-content pre code { background: none; padding: 0; }
+    .preview-content blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1rem 0; color: var(--text-dim); font-style: italic; }
+    .preview-content ul, .preview-content ol { margin: 0.75rem 0 0.75rem 1.5rem; }
+    .preview-content li { margin: 0.25rem 0; }
+    .preview-content li > ul, .preview-content li > ol { margin: 0.25rem 0 0.25rem 1.5rem; }
+    .preview-content hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .preview-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; }
+    .preview-content th, .preview-content td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; }
+    .preview-content th { background: var(--surface-2); font-weight: 600; }
+    .preview-content img { max-width: 100%; border-radius: 8px; }
+    .preview-content input[type="checkbox"] { margin-right: 0.5rem; accent-color: var(--accent); }
+    .hljs-keyword { color: #FF7B72; } .hljs-string { color: #A5D6FF; } .hljs-number { color: #79C0FF; }
+    .hljs-comment { color: #8B949E; font-style: italic; } .hljs-function { color: #D2A8FF; }
+    .hljs-builtin { color: #FFA657; } .hljs-attr { color: #79C0FF; } .hljs-title { color: #D2A8FF; }
+    .preview-content pre code .hljs { background: transparent; }
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px); opacity: 0; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 0.85rem; transition: all 0.3s; z-index: 100; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); text-align: center; padding: 2rem; }
+    .empty-state p { font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Markdown <span>Previewer</span></h1></header>
+
+  <div class="toolbar" id="toolbar">
+    <button class="btn" data-action="bold"><strong>B</strong></button>
+    <button class="btn" data-action="italic"><em>I</em></button>
+    <button class="btn" data-action="strike"><s>S</s></button>
+    <button class="btn" data-action="code">&lt;/&gt;</button>
+    <button class="btn" data-action="h1">H1</button>
+    <button class="btn" data-action="h2">H2</button>
+    <button class="btn" data-action="h3">H3</button>
+    <button class="btn" data-action="ul">Lista</button>
+    <button class="btn" data-action="ol">1.</button>
+    <button class="btn" data-action="quote">"</button>
+    <button class="btn" data-action="codeblock">{ }</button>
+    <button class="btn" data-action="link">Link</button>
+    <button class="btn btn-primary" id="copyHtmlBtn">Copiar HTML</button>
+    <button class="btn btn-primary" id="downloadBtn">Descargar .md</button>
+    <button class="btn" id="clearBtn">Limpiar</button>
+  </div>
+
+  <div class="editor-wrap">
+    <div class="pane editor-pane">
+      <div class="pane-header">Editor</div>
+      <textarea id="editor" spellcheck="false" placeholder="# Escribe aquí&#10;&#10;Texto con **negrita** y *cursiva*&#10;&#10;- Item 1&#10;- Item 2"></textarea>
+    </div>
+    <div class="pane preview-pane">
+      <div class="pane-header">Vista previa</div>
+      <div class="preview-content" id="preview"></div>
+      <div class="empty-state" id="emptyState"><p>La vista previa aparecerá aquí</p></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const editor = document.getElementById('editor');
+    const preview = document.getElementById('preview');
+    const emptyState = document.getElementById('emptyState');
+    const toast = document.getElementById('toast');
+    const toolbar = document.getElementById('toolbar');
+    const copyHtmlBtn = document.getElementById('copyHtmlBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function sanitizeHtml(html) {
+      return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+                .replace(/on\w+\s*=\s*[^\s>]+/gi, '')
+                .replace(/javascript\s*:/gi, '');
+    }
+
+    function highlightCode(code, lang) {
+      const escaped = escapeHtml(code);
+      if (!lang) return escaped;
+      const patterns = {
+        js: [
+          { re: /\b(const|let|var|function|return|if|else|for|while|import|export|from|async|await|class|new|try|catch|throw|this|typeof|instanceof|console|true|false|null|undefined)\b/g, cls: 'hljs-keyword' },
+          { re: /"([^"]*)"/g, cls: 'hljs-string' },
+          { re: /'([^']*)'/g, cls: 'hljs-string' },
+          { re: /`([^`]*)`/g, cls: 'hljs-string' },
+          { re: /\b(\d+\.?\d*)\b/g, cls: 'hljs-number' },
+          { re: /\/\/.*$/gm, cls: 'hljs-comment' },
+        ],
+        html: [
+          { re: /&lt;(\/?\w+)/g, cls: 'hljs-keyword' },
+          { re: /(&lt;\/?\w+)([^&]*)(\/?&gt;)/g, cls: null },
+        ],
+        css: [
+          { re: /(\{|;)/g, cls: null },
+          { re: /(\w[\w-]*)\s*:/g, cls: 'hljs-attr' },
+          { re: /(#[\da-fA-F]{3,6}|\d+\.?\d*(px|rem|em|%|vh|vw))/g, cls: 'hljs-number' },
+          { re: /\/\*[\s\S]*?\*\//g, cls: 'hljs-comment' },
+        ]
+      };
+      const p = patterns[lang] || patterns.js;
+      let result = escaped;
+      for (const { re, cls } of p) {
+        if (cls) result = result.replace(re, `<span class="${cls}">$&</span>`);
+      }
+      return result;
+    }
+
+    function markdownToHtml(md) {
+      let html = md;
+      const codeBlocks = [];
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (m, lang, code) => {
+        const id = codeBlocks.length;
+        codeBlocks.push(`<pre><code>${highlightCode(code, lang || '')}</code></pre>`);
+        return `\u0000CB${id}\u0000`;
+      });
+      html = html.replace(/`([^`]+)`/g, (m, code) => `<code>${escapeHtml(code)}</code>`);
+      html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
+      html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy">');
+      html = html.replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>');
+      html = html.replace(/^---$/gm, '<hr>');
+      html = html.replace(/^\- \[ \] (.*$)/gm, '<li class="task"><input type="checkbox" disabled> $1</li>');
+      html = html.replace(/^\- \[x\] (.*$)/gm, '<li class="task"><input type="checkbox" checked disabled> $1</li>');
+      html = html.replace(/^[\*\-] (.*$)/gm, '<li>$1</li>');
+      html = html.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+      html = handleLists(html);
+      html = html.replace(/^\|(.+)\|\s*$/gm, (m) => {
+        const cells = m.split('|').slice(1,-1).map(c => c.trim());
+        if (cells.every(c => /^:?-{3,}:?$/.test(c))) return '';
+        const tag = !html.match(/<table/) ? '<table>' : '';
+        return `${tag}<tr>${cells.map(c => `<td>${c.trim()}</td>`).join('')}</tr>`;
+      });
+      html = html.replace(/(<tr>.*<\/tr>)\s*(<tr>.*<td>.*<\/td>.*<\/tr>)/g, (m, first, rest) => {
+        if (first.includes('<th>')) return m;
+        const cells1 = [...first.matchAll(/<td>(.*?)<\/td>/g)].map(m => m[1]);
+        const cells2 = [...rest.matchAll(/<td>(.*?)<\/td>/g)].map(m => m[1]);
+        if (cells1.length !== cells2.length) return m;
+        return `<table><thead><tr>${cells1.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rest}</tbody></table>`;
+      });
+      html = html.split('\n\n').map(block => {
+        block = block.trim();
+        if (!block || block.startsWith('<') || block.startsWith('\u0000')) return block;
+        return `<p>${block}</p>`;
+      }).join('\n\n');
+      codeBlocks.forEach((block, i) => { html = html.replace(`\u0000CB${i}\u0000`, block); });
+      return sanitizeHtml(html);
+    }
+
+    function handleLists(html) {
+      let depth = 0;
+      const lines = html.split('\n');
+      const result = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const liMatch = line.match(/^(\s*)(<li.*?<\/li>)/);
+        if (liMatch) {
+          const indent = liMatch[1].length;
+          const li = liMatch[2];
+          if (indent > depth) { result.push('\n'.repeat(depth === 0 ? 0 : 1) + '<ul>\n' + '  '.repeat(indent/2) + li); depth = indent; }
+          else if (indent < depth) { result.push('</ul>\n' + '  '.repeat(indent/2) + li); depth = indent; }
+          else { result.push('  '.repeat(indent/2) + li); }
+        } else {
+          if (depth > 0) { result.push('</ul>'); depth = 0; }
+          result.push(line);
+        }
+      }
+      if (depth > 0) result.push('</ul>');
+      return result.join('\n');
+    }
+
+    function updatePreview() {
+      const md = editor.value;
+      if (!md.trim()) { preview.innerHTML = ''; emptyState.style.display = 'flex'; return; }
+      emptyState.style.display = 'none';
+      preview.innerHTML = markdownToHtml(md);
+    }
+
+    function insertAtCursor(before, after = '') {
+      const start = editor.selectionStart, end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      editor.value = editor.value.slice(0, start) + before + selected + after + editor.value.slice(end);
+      editor.focus();
+      editor.selectionStart = start + before.length;
+      editor.selectionEnd = start + before.length + selected.length;
+      updatePreview();
+    }
+
+    function wrapLines(prefix, suffix = '') {
+      const start = editor.selectionStart, end = editor.selectionEnd;
+      const selected = editor.value.substring(start, end);
+      const lines = selected.split('\n');
+      const wrapped = lines.map(l => prefix + l + suffix).join('\n');
+      editor.value = editor.value.slice(0, start) + wrapped + editor.value.slice(end);
+      editor.focus();
+      editor.selectionStart = start;
+      editor.selectionEnd = start + wrapped.length;
+      updatePreview();
+    }
+
+    const actions = {
+      bold: () => insertAtCursor('**', '**'),
+      italic: () => insertAtCursor('*', '*'),
+      strike: () => insertAtCursor('~~', '~~'),
+      code: () => insertAtCursor('`', '`'),
+      h1: () => insertAtCursor('# '), h2: () => insertAtCursor('## '), h3: () => insertAtCursor('### '),
+      ul: () => wrapLines('- '), ol: () => wrapLines('1. '),
+      quote: () => wrapLines('> '),
+      codeblock: () => insertAtCursor('```\n', '\n```'),
+      link: () => insertAtCursor('[', '](url)'),
+    };
+
+    toolbar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (btn && actions[btn.dataset.action]) actions[btn.dataset.action]();
+    });
+
+    editor.addEventListener('input', updatePreview);
+    editor.addEventListener('keydown', e => {
+      if ((e.ctrlKey||e.metaKey) && e.key === 'b') { e.preventDefault(); actions.bold(); }
+      if ((e.ctrlKey||e.metaKey) && e.key === 'i') { e.preventDefault(); actions.italic(); }
+    });
+
+    copyHtmlBtn.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(preview.innerHTML); showToast('HTML copiado'); } catch { showToast('Error al copiar'); }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!editor.value.trim()) { showToast('Nada que descargar'); return; }
+      const blob = new Blob([editor.value], {type:'text/markdown'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `documento-${Date.now()}.md`; a.click();
+      URL.revokeObjectURL(url); showToast('Descargado');
+    });
+
+    clearBtn.addEventListener('click', () => { if (editor.value.trim() && confirm('¿Limpiar?')) { editor.value = ''; updatePreview(); } });
+
+    const saved = localStorage.getItem('mdEditor');
+    if (saved) editor.value = saved;
+    editor.addEventListener('input', () => localStorage.setItem('mdEditor', editor.value));
+
+    function showToast(msg) { toast.textContent = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); }
+
+    updatePreview();
+  </script>
+</body>
+</html>

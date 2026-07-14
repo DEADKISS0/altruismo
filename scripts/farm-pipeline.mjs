@@ -1,24 +1,11 @@
-// web/scripts/farm-pipeline.mjs
-// Pipeline end-to-end de la granja de webs:
-// 1. Investiga tendencias
-// 2. Genera HTML con LLM (OpenRouter)
-// 3. Valida HTML
-// 4. Sube a Supabase Storage + BD
-// 5. (Opcional) Crea repo en GitHub
-//
-// Uso local:
-//   node web/scripts/farm-pipeline.mjs
-//   UPLOAD_TO_SUPABASE=1 node web/scripts/farm-pipeline.mjs
-//   UPLOAD_TO_SUPABASE=1 GITHUB_SYNC=1 node web/scripts/farm-pipeline.mjs
-// Requiere: OPENROUTER_API_KEY en env (para LLM)
-
 import { createClient } from '@supabase/supabase-js';
-import { writeFileSync, mkdirSync, readFileSync } from 'fs';
-import { join, basename } from 'path';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const OUTPUT_DIR = process.env.FARM_OUTPUT_DIR || join(__dirname, '..', '..', '..', 'farm-htmls');
+const LAST_RUN_FILE = join(OUTPUT_DIR, 'last-run.json');
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
@@ -36,7 +23,6 @@ const KIMI_API_KEY = process.env.KIMI_API_KEY || '';
 const KIMI_MODEL = process.env.KIMI_MODEL || 'moonshot-v1-32k';
 const KIMI_URL = 'https://api.moonshot.cn/v1/chat/completions';
 
-// Preferencia: explícito > Anthropic > Groq > Kimi > OpenRouter fallback
 function resolveLLM() {
   if (process.env.OPENROUTER_API_KEY) return { provider: 'openrouter', key: process.env.OPENROUTER_API_KEY, model: OPENROUTER_MODEL, url: OPENROUTER_URL };
   if (process.env.ANTHROPIC_API_KEY) return { provider: 'anthropic', key: process.env.ANTHROPIC_API_KEY, model: ANTHROPIC_MODEL, url: ANTHROPIC_URL };
@@ -51,35 +37,106 @@ const UPLOAD_TO_SUPABASE = process.env.UPLOAD_TO_SUPABASE === '1';
 const GITHUB_SYNC = process.env.GITHUB_SYNC === '1';
 const GITHUB_TOKEN = process.env.GH_PAT;
 const GITHUB_OWNER = process.env.GH_OWNER || 'DEADKISS0';
+const BOT_USER_ID = process.env.BOT_USER_ID || '9767656b-dee1-4fe3-880b-866dfdade98e';
 
-const timestamp = Date.now();
+const INTERVAL_MS = 2 * 60 * 60 * 1000;
 
-const TRENDS = [
-  { category: 'productivity', idea: 'Focus timer with Pomodoro cycles and ambient sounds', problem: 'Ayudar a mantener foco profundo con ciclos de trabajo/descanso personalizables.' },
-  { category: 'data', idea: 'JSON formatter & validator with syntax highlighting', problem: 'Formatear, validar y explorar JSON de forma visual sin instalar nada.' },
-  { category: 'productivity', idea: 'Habit tracker with streak visualization and reminders', problem: 'Construir hábitos duraderos viendo rachas y progreso visual.' },
-  { category: 'professional', idea: 'Regex tester with live match highlighting and cheatsheet', problem: 'Probar y depurar expresiones regulares en tiempo real.' },
-  { category: 'data', idea: 'Unit converter with 50+ categories and smart search', problem: 'Convertir cualquier unidad al instante con búsqueda difusa.' },
-  { category: 'productivity', idea: 'Task batcher with Eisenhower matrix and time estimates', problem: 'Organizar tareas por urgencia/importancia y estimar tiempo real.' },
-  { category: 'data', idea: 'Color palette generator with accessibility contrast checker', problem: 'Crear paletas accesibles WCAG AA/AAA para UI.' },
-  { category: 'professional', idea: 'Markdown previewer with live sync and export', problem: 'Escribir y previsualizar Markdown con export a HTML/PDF.' },
-  { category: 'productivity', idea: 'Password generator with entropy meter and passphrase mode', problem: 'Generar contraseñas seguras y memorables al instante.' },
-  { category: 'data', idea: 'CSV explorer with filtering, sorting and chart preview', problem: 'Explorar archivos CSV grandes sin Excel, con gráficos rápidos.' },
+function getAllowedCategories() {
+  return ['productivity', 'data', 'professional'];
+}
+
+const TOOL_IDEAS = [
+  { category: 'productivity', idea: 'Task prioritizer with Eisenhower matrix and drag-drop', problem: 'Organizar tareas por urgencia/importancia con interfaz arrastrable.' },
+  { category: 'data', idea: 'Regex tester with match highlighting and cheatsheet', problem: 'Probar y depurar expresiones regulares en tiempo real.' },
+  { category: 'professional', idea: 'CSS grid generator with visual preview', problem: 'Crear layouts CSS grid visualmente sin escribir código.' },
+  { category: 'productivity', idea: 'Pomodoro timer with ambient sounds', problem: 'Timer de foco con sonidos ambientales para concentración.' },
+  { category: 'data', idea: 'Base64 encoder/decoder with file support', problem: 'Codificar y decodificar texto y archivos en Base64.' },
+  { category: 'professional', idea: 'Color palette generator from image upload', problem: 'Extraer paleta de colores de una imagen automáticamente.' },
+  { category: 'productivity', idea: 'Markdown to HTML converter with live preview', problem: 'Convertir Markdown a HTML con vista previa instantánea.' },
+  { category: 'data', idea: 'QR code generator with custom styling', problem: 'Crear códigos QR personalizados con colores y estilos.' },
+  { category: 'professional', idea: 'JavaScript playground with instant execution', problem: 'Escribir y ejecutar JavaScript en el navegador al instante.' },
+  { category: 'productivity', idea: 'Decision wheel with weighted options', problem: 'Tomar decisiones girando una ruleta con pesos personalizados.' },
+  { category: 'data', idea: 'Unix timestamp converter with timezone support', problem: 'Convertir timestamps Unix a fechas legibles con zonas horarias.' },
+  { category: 'professional', idea: 'Gradient generator with CSS export', problem: 'Crear gradientes CSS con preview en vivo y export.' },
+  { category: 'productivity', idea: 'Breathing exercise with animated circle', problem: 'Ejercicios de respiración guiados con animación visual.' },
+  { category: 'data', idea: 'JSON diff tool comparing two objects', problem: 'Comparar dos JSONs y ver las diferencias al instante.' },
+  { category: 'professional', idea: 'HTML entity encoder/decoder', problem: 'Codificar y decodificar entidades HTML rápidamente.' },
+  { category: 'productivity', idea: 'Study timer with spaced repetition schedule', problem: 'Timer de estudio con agenda de repetición espaciada.' },
+  { category: 'data', idea: 'IP address lookup with geolocation', problem: 'Buscar información de direcciones IP con geolocalización.' },
+  { category: 'professional', idea: 'SVG path editor with preview', problem: 'Editar paths SVG con vista previa en tiempo real.' },
+  { category: 'productivity', idea: 'Kanban board with localStorage persistence', problem: 'Tablero Kanban con persistencia local.' },
+  { category: 'data', idea: 'Binary/decimal/hex converter', problem: 'Convertir entre binario, decimal y hexadecimal.' },
+  { category: 'professional', idea: 'Tailwind color palette explorer', problem: 'Explorar la paleta de colores de Tailwind CSS.' },
+  { category: 'productivity', idea: 'Goal tracker with progress visualization', problem: 'Seguimiento de metas con visualización de progreso.' },
+  { category: 'data', idea: 'Lorem ipsum generator with paragraph control', problem: 'Generar texto Lorem Ipsum con control de párrafos.' },
+  { category: 'professional', idea: 'CSS unit converter (rem/em/px)', problem: 'Convertir entre unidades CSS rápidamente.' },
 ];
 
-const CATEGORY_ROTATION = [
-  'productivity', 'data', 'productivity', 'professional', 'data', 'productivity',
-];
+function getLastRunInfo() {
+  if (!existsSync(LAST_RUN_FILE)) return null;
+  try {
+    return JSON.parse(readFileSync(LAST_RUN_FILE, 'utf8'));
+  } catch { return null; }
+}
 
-function generateResearch() {
-  const pick = TRENDS[Math.floor(Math.random() * TRENDS.length)];
+function saveLastRunInfo(toolsGenerated, lastTimestamp) {
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+  writeFileSync(LAST_RUN_FILE, JSON.stringify({
+    lastTimestamp,
+    toolsGenerated,
+    updatedAt: new Date().toISOString(),
+  }, null, 2));
+}
+
+async function getExistingTitles(supabase) {
+  const { data, error } = await supabase.from('pages').select('title');
+  if (error) { console.error('Error fetching titles:', error.message); return []; }
+  return (data || []).map(p => p.title.toLowerCase().trim());
+}
+
+function normalizeTitle(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+}
+
+function pickUniqueIdea(existingTitles) {
+  const normalizedExisting = existingTitles.map(normalizeTitle);
+  const available = TOOL_IDEAS.filter(idea => {
+    const normalizedIdea = normalizeTitle(idea.idea);
+    return !normalizedExisting.some(et =>
+      et === normalizedIdea ||
+      et.includes(normalizedIdea) ||
+      normalizedIdea.includes(et)
+    );
+  });
+
+  if (available.length === 0) {
+    const timestamp = Date.now();
+    const categories = getAllowedCategories();
+    const cat = categories[Math.floor(Math.random() * categories.length)];
+    return {
+      category: cat,
+      idea: `Custom tool ${timestamp}`,
+      problem: `Herramienta única generada el ${new Date().toISOString()}`,
+    };
+  }
+
+  return available[Math.floor(Math.random() * available.length)];
+}
+
+async function researchPhase(supabase, idea) {
+  const existingTitles = await getExistingTitles(supabase);
+  const existingCount = existingTitles.length;
+  console.log(`📊 Herramientas existentes: ${existingCount}`);
+  console.log(`🎯 Idea seleccionada: ${idea.idea} [${idea.category}]`);
+
   return {
-    timestamp,
-    category: pick.category,
-    idea: pick.idea,
-    problem: pick.problem,
+    timestamp: Date.now(),
+    category: idea.category,
+    idea: idea.idea,
+    problem: idea.problem,
     targetUser: 'Desarrolladores, creativos y profesionales que buscan micro-herramientas inmediatas.',
     aesthetic: 'Modo oscuro por defecto, acentos vibrantes (ember/void), tipografía Inter, animaciones CSS 200ms ease-out, mobile-first.',
+    existingTools: existingCount,
   };
 }
 
@@ -91,7 +148,7 @@ function generateDesign(research) {
   };
   const p = palettes[research.category] || palettes.productivity;
   return {
-    timestamp,
+    timestamp: research.timestamp,
     category: research.category,
     colors: { background: p.bg, surface: p.surface, text: p.text, accent: p.accent, secondary: p.secondary, success: '#10B981', warning: '#F59E0B' },
     typography: { font: 'Inter, system-ui, sans-serif', headingWeight: 700, bodyWeight: 400 },
@@ -131,13 +188,14 @@ ${research.targetUser}
 - Sin backend, sin localStorage obligatorio, sin eval(), sin innerHTML con datos no confiables
 - Código limpio, semántico, comentado en partes clave
 - Meta viewport, charset, title descriptivo
+- Que NO sea una herramienta duplicada (no copiar herramientas existentes)
 
 ## Output
 Devuelve SOLO el código HTML completo, SIN explicaciones, SIN markdown, SIN bloques de código.`;
 }
 
 async function callLLM(prompt) {
-  console.log(`\n🤖 Llamando a LLM (${LLM.model})...`);
+  console.log(`🤖 Llamando a LLM (${LLM.model})...`);
   const system = 'Eres un desarrollador frontend experto. Generas HTML único, limpio y funcional. Nunca usas markdown en la respuesta.';
   const userMessage = { role: 'user', content: prompt };
 
@@ -145,47 +203,20 @@ async function callLLM(prompt) {
   if (LLM.provider === 'anthropic') {
     res = await fetch(LLM.url, {
       method: 'POST',
-      headers: {
-        'x-api-key': LLM.key,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: LLM.model,
-        system,
-        messages: [userMessage],
-        temperature: 0.7,
-        max_tokens: 8000,
-      }),
+      headers: { 'x-api-key': LLM.key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: LLM.model, system, messages: [userMessage], temperature: 0.7, max_tokens: 8000 }),
     });
   } else {
     res = await fetch(LLM.url, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LLM.key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: LLM.model,
-        messages: [
-          { role: 'system', content: system },
-          userMessage,
-        ],
-        temperature: 0.7,
-        max_tokens: 8000,
-      }),
+      headers: { 'Authorization': `Bearer ${LLM.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: LLM.model, messages: [{ role: 'system', content: system }, userMessage], temperature: 0.7, max_tokens: 8000 }),
     });
   }
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`LLM API error ${res.status}: ${err}`);
-  }
-
+  if (!res.ok) { const err = await res.text(); throw new Error(`LLM API error ${res.status}: ${err}`); }
   const data = await res.json();
-  const html = LLM.provider === 'anthropic'
-    ? data.content?.[0]?.text?.trim()
-    : data.choices?.[0]?.message?.content?.trim();
+  const html = LLM.provider === 'anthropic' ? data.content?.[0]?.text?.trim() : data.choices?.[0]?.message?.content?.trim();
   if (!html) throw new Error('Respuesta vacía del LLM');
   return html;
 }
@@ -207,16 +238,11 @@ function validateHTML(html) {
   return { checks, passed, total, ok: passed >= total - 1 };
 }
 
-// Supabase upload
 async function createSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY');
-  }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  if (!supabaseUrl || !serviceRoleKey) throw new Error('Faltan Supabase env vars');
+  return createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
 async function getCategoryId(supabase, slug) {
@@ -226,7 +252,7 @@ async function getCategoryId(supabase, slug) {
 }
 
 function generateDescription(html) {
-  const metaMatch = html.match(/<meta[^\u003e]*name=["']description["'][^\u003e]*content=["']([^"']*)["'][^\u003e]*>/i);
+  const metaMatch = html.match(/<meta[^\u003e]*name=["']description["'][^\u003e]*content=["']([^"']*)["']/i);
   if (metaMatch) return metaMatch[1];
   const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   return text.slice(0, 160) || 'Herramienta interactiva generada por Chat RR aliados';
@@ -234,111 +260,41 @@ function generateDescription(html) {
 
 async function uploadToSupabase(supabase, botUserId, title, html, category) {
   if (!botUserId) throw new Error('Falta BOT_USER_ID');
-
-  const categoryId = await getCategoryId(supabase, category);
+  const categoryId = await getCategoryId(supabase, category).catch(() => null);
+  const timestamp = Date.now();
   const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const fileName = `${safeTitle}.html`;
   const storagePath = `${botUserId}/${timestamp}/${fileName}`;
   const description = generateDescription(html);
 
   const { error: uploadError } = await supabase.storage
-    .from('pages')
-    .upload(storagePath, html, { contentType: 'text/html' });
+    .from('pages').upload(storagePath, html, { contentType: 'text/html' });
   if (uploadError) throw uploadError;
 
   const { data: { publicUrl } } = supabase.storage.from('pages').getPublicUrl(storagePath);
 
   const { data: page, error: insertError } = await supabase
-    .from('pages')
-    .insert({
-      author_id: botUserId,
-      category_id: categoryId,
+    .from('pages').insert({
+      author_id: botUserId, category_id: categoryId,
       title: title.replace(/[-_]/g, ' ').trim(),
-      description,
-      file_url: publicUrl,
-      is_open_source: true,
-      source_code: html,
-    })
-    .select('id')
-    .single();
+      description, file_url: publicUrl,
+      is_open_source: true, source_code: html,
+    }).select('id').single();
   if (insertError) throw insertError;
 
   return { id: page.id, publicUrl };
 }
 
-// GitHub sync
-async function createGitHubRepo(name, description) {
-  if (!GITHUB_TOKEN) throw new Error('Falta GITHUB_TOKEN');
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
-  const repoName = `altruismo-${slug}`;
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  const checkRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${repoName}`, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' },
-  });
+async function runCycle(supabase, cycleNum) {
+  const timestamp = Date.now();
+  console.log(`\n--- Ciclo ${cycleNum} ---`);
 
-  if (checkRes.status === 404) {
-    const createRes = await fetch(`https://api.github.com/${GITHUB_OWNER.includes('/') ? 'orgs' : 'users'}/${GITHUB_OWNER}/repos`, {
-      method: 'POST',
-      headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: repoName,
-        description,
-        private: false,
-        has_issues: false,
-        has_projects: false,
-        has_wiki: false,
-      }),
-    });
-    if (!createRes.ok) throw new Error(`GitHub create repo failed: ${(await createRes.json()).message}`);
-  } else if (!checkRes.ok) {
-    throw new Error(`GitHub check repo failed: ${checkRes.status}`);
-  }
-  return repoName;
-}
+  const existingTitles = await getExistingTitles(supabase);
+  const idea = pickUniqueIdea(existingTitles);
 
-async function commitToGitHub(repoName, fileName, content) {
-  const base64 = Buffer.from(content).toString('base64');
-  const path = 'index.html';
-  const getRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${repoName}/contents/${path}`, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' },
-  });
-
-  const body = { message: `feat: add ${fileName}`, content: base64 };
-  if (getRes.status === 200) {
-    const existing = await getRes.json();
-    body.sha = existing.sha;
-  }
-
-  const putRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${repoName}/contents/${path}`, {
-    method: 'PUT',
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!putRes.ok) throw new Error(`GitHub commit failed: ${(await putRes.json()).message}`);
-}
-
-async function syncToGitHub(title, html) {
-  if (!GITHUB_TOKEN) {
-    console.log('⚠️ GITHUB_TOKEN no configurado, omitiendo GitHub');
-    return null;
-  }
-  const description = generateDescription(html);
-  const repoName = await createGitHubRepo(title, description);
-  await commitToGitHub(repoName, `${title}.html`, html);
-  return `https://github.com/${GITHUB_OWNER}/${repoName}`;
-}
-
-async function main() {
-  mkdirSync(OUTPUT_DIR, { recursive: true });
-
-  console.log('\n🌱 FARM PIPELINE — Pipeline completo de la granja');
-  console.log(`📁 Output: ${OUTPUT_DIR}`);
-  console.log(`🤖 Modelo LLM: ${LLM.model}`);
-  console.log(`⬆️  Subir a Supabase: ${UPLOAD_TO_SUPABASE ? 'SÍ' : 'NO'}`);
-  console.log(`🐙 Sincronizar GitHub: ${GITHUB_SYNC ? 'SÍ' : 'NO'}\n`);
-
-  // Fase 1-2: Investigador + Diseñador
-  const research = generateResearch();
+  const research = await researchPhase(supabase, idea);
   writeFileSync(join(OUTPUT_DIR, `research-${timestamp}.json`), JSON.stringify(research, null, 2));
   console.log(`🔍 Investigación: ${research.idea} [${research.category}]`);
 
@@ -346,7 +302,6 @@ async function main() {
   writeFileSync(join(OUTPUT_DIR, `design-${timestamp}.json`), JSON.stringify(design, null, 2));
   console.log(`🎨 Diseño: paleta ${design.colors.accent}`);
 
-  // Fase 3: Desarrollador (LLM)
   const prompt = generatePrompt(research, design);
   writeFileSync(join(OUTPUT_DIR, `prompt-${timestamp}.txt`), prompt);
 
@@ -356,58 +311,72 @@ async function main() {
     console.log(`✅ HTML generado (${Math.round(html.length / 1024)} KB)`);
   } catch (e) {
     console.error(`❌ Error LLM: ${e.message}`);
-    process.exit(1);
+    return null;
   }
 
-  // Fase 4: Validador
   const validation = validateHTML(html);
-  writeFileSync(join(OUTPUT_DIR, `validation-${timestamp}.json`), JSON.stringify(validation, null, 2));
-  console.log(`🔍 Validación: ${validation.passed}/${validation.total} checks OK (${validation.ok ? 'PASS' : 'FAIL'})`);
-
+  console.log(`🔍 Validación: ${validation.passed}/${validation.total} (${validation.ok ? 'PASS' : 'FAIL'})`);
   if (!validation.ok) {
-    console.error('⚠️ HTML no pasó validación básica. Revisar validation-*.json');
-    process.exit(1);
+    console.error('⚠️ HTML no pasó validación. Saltando.');
+    return null;
   }
 
-  // Guardar HTML
   const safeTitle = research.idea.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const htmlFile = `tool-${safeTitle}-${timestamp}.html`;
-  const htmlPath = join(OUTPUT_DIR, htmlFile);
-  writeFileSync(htmlPath, html);
-  console.log(`💾 Guardado: ${htmlFile}`);
+  writeFileSync(join(OUTPUT_DIR, htmlFile), html);
 
-  // Fase 5: Publicación en Supabase
   let pageUrl = null;
   if (UPLOAD_TO_SUPABASE) {
     try {
-      const supabase = await createSupabaseClient();
-      const result = await uploadToSupabase(supabase, process.env.BOT_USER_ID, safeTitle, html, research.category);
+      const result = await uploadToSupabase(supabase, BOT_USER_ID, safeTitle, html, research.category);
       pageUrl = `https://altruismo-web.vercel.app/page/${result.id}`;
-      console.log(`✅ Publicado en Supabase: ${pageUrl}`);
-      console.log(`   Storage: ${result.publicUrl}`);
+      console.log(`✅ Publicado: ${pageUrl}`);
     } catch (e) {
-      console.error(`❌ Error subiendo a Supabase: ${e.message}`);
+      console.error(`❌ Error Supabase: ${e.message}`);
     }
   }
 
-  // Fase 6: Sincronización GitHub
-  let githubUrl = null;
-  if (GITHUB_SYNC) {
-    try {
-      githubUrl = await syncToGitHub(safeTitle, html);
-      console.log(`✅ GitHub: ${githubUrl}`);
-    } catch (e) {
-      console.error(`❌ Error GitHub: ${e.message}`);
+  return { idea: research.idea, category: research.category, file: htmlFile, url: pageUrl };
+}
+
+async function main() {
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  console.log('\n🌱 FARM PIPELINE — Pipeline completo de la granja');
+  console.log(`🤖 Modelo: ${LLM.model}`);
+  console.log(`⏰ Intervalo: 2h`);
+
+  const supabase = await createSupabaseClient();
+
+  const lastRun = getLastRunInfo();
+  let cyclesToRun = 1;
+
+  if (lastRun?.lastTimestamp) {
+    const elapsed = Date.now() - lastRun.lastTimestamp;
+    const missed = Math.floor(elapsed / INTERVAL_MS);
+    if (missed > 1) {
+      cyclesToRun = Math.min(missed, 6);
+      console.log(`\n⚠️  Sistema estuvo offline. Generando ${cyclesToRun} herramientas perdidas.`);
     }
   }
 
-  // Resumen
-  console.log('\n✅ CICLO COMPLETO');
-  console.log(`   Herramienta: ${research.idea}`);
-  console.log(`   Categoría: ${research.category}`);
-  console.log(`   Archivo: ${htmlFile}`);
-  if (pageUrl) console.log(`   Página: ${pageUrl}`);
-  if (githubUrl) console.log(`   GitHub: ${githubUrl}`);
+  const results = [];
+  for (let i = 1; i <= cyclesToRun; i++) {
+    const result = await runCycle(supabase, i);
+    if (result) results.push(result);
+    if (i < cyclesToRun) {
+      console.log(`\n⏳ Esperando 5s antes del siguiente ciclo...`);
+      await sleep(5000);
+    }
+  }
+
+  saveLastRunInfo(results.length, Date.now());
+
+  console.log('\n✅ RESUMEN');
+  console.log(`   Herramientas generadas: ${results.length}/${cyclesToRun}`);
+  results.forEach((r, i) => {
+    console.log(`   ${i+1}. ${r.idea} [${r.category}]${r.url ? ` → ${r.url}` : ''}`);
+  });
   console.log('');
 }
 

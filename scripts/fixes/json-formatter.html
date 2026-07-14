@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Formatter — Altruismo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0F0F0F; --surface: #1A1A1A; --surface-2: #252525; --text: #F5E6D3; --text-dim: #B8A99A; --accent: #CE3D1F; --accent-hover: #E34D2C; --success: #10B981; --error: #EF4444; --border: #333333; --radius: 12px; --font-mono: 'JetBrains Mono', monospace; --font-ui: 'Inter', system-ui, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-ui); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
+    .container { max-width: 900px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 2rem; }
+    h1 { font-size: clamp(1.8rem,5vw,2.6rem); margin-bottom:0.5rem; }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--text-dim); }
+    .card { background: var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1rem; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; align-items:center; }
+    .btn { padding:0.65rem 1.25rem; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-ui); font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
+    .btn:hover { border-color:var(--accent); }
+    .btn.primary { background:var(--accent); border-color:var(--accent); }
+    .btn.primary:hover { background:var(--accent-hover); }
+    .editor-wrap { position:relative; border-radius:8px; overflow:hidden; border:1px solid var(--border); background:var(--surface-2); }
+    textarea { width:100%; min-height:350px; padding:1rem; background:transparent; border:none; color:var(--text); font-family:var(--font-mono); font-size:0.85rem; line-height:1.6; resize:vertical; outline:none; white-space:pre; overflow-wrap:normal; overflow-x:auto; }
+    .status-bar { display:flex; align-items:center; gap:0.5rem; padding:0.75rem 1rem; border-radius:8px; font-size:0.85rem; margin-bottom:0.5rem; min-height:48px; }
+    .status-bar.valid { background:rgba(16,185,129,0.15); color:var(--success); border:1px solid rgba(16,185,129,0.3); }
+    .status-bar.invalid { background:rgba(239,68,68,0.15); color:var(--error); border:1px solid rgba(239,68,68,0.3); }
+    .status-bar.hidden { display:none; }
+    .stats { display:flex; gap:1.5rem; color:var(--text-dim); font-size:0.8rem; margin-top:0.5rem; }
+    .spacer { flex:1; }
+    .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(100px); opacity:0; background:var(--surface); border:1px solid var(--accent); border-radius:8px; padding:0.75rem 1.5rem; font-size:0.85rem; transition:all 0.3s; z-index:100; pointer-events:none; }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .hl { color: #79C0FF; } .hl-k { color: #FF7B72; } .hl-s { color: #A5D6FF; } .hl-n { color: #79C0FF; } .hl-b { color: #FFA657; }
+    .paste-hint { position:absolute; top:0.5rem; right:0.75rem; font-size:0.7rem; color:var(--text-dim); opacity:0; transition:opacity 0.3s; pointer-events:none; }
+    .editor-wrap:hover .paste-hint { opacity:1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header><h1>JSON <span>Formatter</span></h1><p class="subtitle">Formatea, valida, minifica y exporta JSON. Pega JSON automáticamente.</p></header>
+
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn primary" id="formatBtn">Formatear</button>
+        <button class="btn" id="minifyBtn">Minificar</button>
+        <button class="btn" id="validateBtn">Validar</button>
+        <button class="btn" id="copyBtn">Copiar</button>
+        <button class="btn" id="downloadBtn">Descargar</button>
+        <button class="btn" id="clearBtn">Limpiar</button>
+        <div class="spacer"></div>
+      </div>
+
+      <div class="status-bar hidden" id="status"></div>
+
+      <div class="editor-wrap">
+        <textarea id="editor" placeholder='{"ejemplo": "Pega tu JSON aquí…"}' spellcheck="false"></textarea>
+        <span class="paste-hint">Pega JSON → se formatea solo</span>
+      </div>
+
+      <div class="stats">
+        <span id="charCount">0 caracteres</span>
+        <span id="lineCount">0 líneas</span>
+        <span id="sizeCount">0 bytes</span>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const editor=document.getElementById('editor'),status=document.getElementById('status');
+    const formatBtn=document.getElementById('formatBtn'),minifyBtn=document.getElementById('minifyBtn');
+    const validateBtn=document.getElementById('validateBtn'),copyBtn=document.getElementById('copyBtn');
+    const downloadBtn=document.getElementById('downloadBtn'),clearBtn=document.getElementById('clearBtn');
+    const charCount=document.getElementById('charCount'),lineCount=document.getElementById('lineCount'),sizeCount=document.getElementById('sizeCount');
+    let autoFormatTimer = null;
+
+    function updateStats(){const v=editor.value;charCount.textContent=`${v.length} caracteres`;lineCount.textContent=`${v.split('\n').length} líneas`;sizeCount.textContent=`${new Blob([v]).size} bytes`;}
+    function showStatus(msg,valid){status.textContent=msg;status.className=`status-bar ${valid?'valid':'invalid'}`;status.classList.remove('hidden');}
+    function hideStatus(){status.classList.add('hidden');}
+    function parseJSON(){try{return JSON.parse(editor.value);}catch(e){const m=e.message;const posMatch=m.match(/position\s+(\d+)/);if(posMatch){const pos=parseInt(posMatch[1]);const lines=editor.value.slice(0,pos).split('\n');const line=lines.length;const col=lines[lines.length-1].length;throw new Error(`Error en línea ${line}, columna ${col}: ${m}`);}throw e;}}
+
+    formatBtn.addEventListener('click',()=>{try{const obj=parseJSON();editor.value=JSON.stringify(obj,null,2);showStatus('JSON formateado correctamente',true);updateStats();}catch(e){showStatus(`Error: ${e.message}`,false);}});
+    minifyBtn.addEventListener('click',()=>{try{const obj=parseJSON();editor.value=JSON.stringify(obj);showStatus('JSON minificado',true);updateStats();}catch(e){showStatus(`Error: ${e.message}`,false);}});
+    validateBtn.addEventListener('click',()=>{try{parseJSON();showStatus('JSON válido',true);}catch(e){showStatus(`Inválido: ${e.message}`,false);}});
+    copyBtn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(editor.value);showToast('Copiado');}catch{showToast('Error al copiar');}});
+    downloadBtn.addEventListener('click',()=>{const b=new Blob([editor.value],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`json-${Date.now()}.json`;a.click();URL.revokeObjectURL(u);showToast('Descargado');});
+    clearBtn.addEventListener('click',()=>{editor.value='';updateStats();hideStatus();});
+    editor.addEventListener('input',()=>{updateStats();hideStatus();});
+
+    // Auto-format on paste: detect if valid JSON was pasted
+    editor.addEventListener('paste',()=>{
+      clearTimeout(autoFormatTimer);
+      autoFormatTimer = setTimeout(() => {
+        try {
+          const val = editor.value.trim();
+          if (!val) return;
+          // Try parsing - if it's valid JSON, auto-format
+          const obj = JSON.parse(val);
+          const formatted = JSON.stringify(obj, null, 2);
+          if (formatted !== val) {
+            editor.value = formatted;
+            updateStats();
+            showStatus('JSON detectado y formateado automáticamente', true);
+          }
+        } catch(e) {
+          // Not valid JSON, don't auto-format (but might be partial paste)
+        }
+      }, 300);
+    });
+
+    // Keyboard shortcuts
+    editor.addEventListener('keydown', e => {
+      if ((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); formatBtn.click(); }
+      if ((e.ctrlKey||e.metaKey) && e.key === 'Enter') { e.preventDefault(); formatBtn.click(); }
+    });
+
+    function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+    updateStats();
+  </script>
+</body>
+</html>

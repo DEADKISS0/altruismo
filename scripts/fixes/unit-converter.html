@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unit Converter — Altruismo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0F0F0F; --surface: #1A1A1A; --surface-2: #252525; --text: #F5E6D3; --text-dim: #B8A99A; --accent: #CE3D1F; --accent-hover: #E34D2C; --border: #333333; --radius: 12px; --font-mono: 'JetBrains Mono', monospace; --font-ui: 'Inter', system-ui, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-ui); background: var(--bg); color: var(--text); min-height: 100vh; padding: 1.5rem 1rem; }
+    .container { max-width: 600px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 1.5rem; }
+    h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--text-dim); font-size: 0.85rem; margin-top: 0.25rem; }
+    .category-tabs { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 1rem; justify-content: center; }
+    .tab { padding: 0.5rem 1rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+    .tab.active { background: var(--accent); border-color: var(--accent); }
+    .tab:hover:not(.active) { border-color: var(--accent); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
+    .input-group { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.25rem; }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+    .field-row { display: flex; gap: 0.5rem; align-items: center; }
+    input, select { width: 100%; padding: 0.75rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 1rem; font-family: inherit; }
+    input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(206,61,31,0.15); }
+    input[type="number"] { font-family: var(--font-mono); font-size: 1.25rem; -moz-appearance: textfield; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    select { cursor: pointer; }
+    .result-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; text-align: center; }
+    .result-value { font-family: var(--font-mono); font-size: 1.75rem; font-weight: 700; color: var(--accent); word-break: break-all; }
+    .result-label { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem; }
+    .swap-btn { background: none; border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; color: var(--text); font-size: 1.2rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+    .swap-btn:hover { border-color: var(--accent); background: var(--surface-2); }
+    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; background: var(--accent); color: var(--text); font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { background: var(--accent-hover); }
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 0.85rem; opacity: 0; transition: all 0.3s; z-index: 100; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Unit <span>Converter</span></h1>
+      <p class="subtitle">Conversión rápida entre unidades de medida</p>
+    </header>
+
+    <div class="category-tabs" id="tabs"></div>
+
+    <div class="card">
+      <div class="input-group">
+        <div class="field">
+          <label for="value">Valor</label>
+          <input type="number" id="value" value="1" step="any">
+        </div>
+        <div class="field">
+          <label for="from">De</label>
+          <select id="from"></select>
+        </div>
+      </div>
+
+      <button class="swap-btn" id="swapBtn" title="Invertir">⇄</button>
+
+      <div class="input-group" style="margin-top:1rem">
+        <div class="field">
+          <label for="to">A</label>
+          <select id="to"></select>
+        </div>
+      </div>
+
+      <div class="result-card">
+        <div class="result-value" id="result">1 m = 100 cm</div>
+        <div class="result-label">Resultado</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const categories = {
+      length: {
+        name: 'Longitud', icon: '↔',
+        units: { m: {label:'Metro', toBase:1}, km: {label:'Kilómetro', toBase:1000}, cm: {label:'Centímetro', toBase:0.01}, mm: {label:'Milímetro', toBase:0.001}, ft: {label:'Pie', toBase:0.3048}, in: {label:'Pulgada', toBase:0.0254}, mi: {label:'Milla', toBase:1609.34}, yd: {label:'Yarda', toBase:0.9144} }
+      },
+      weight: {
+        name: 'Peso', icon: '⚖',
+        units: { kg: {label:'Kilogramo', toBase:1}, g: {label:'Gramo', toBase:0.001}, mg: {label:'Miligramo', toBase:1e-6}, lb: {label:'Libra', toBase:0.453592}, oz: {label:'Onza', toBase:0.0283495}, t: {label:'Tonelada', toBase:1000} }
+      },
+      temperature: {
+        name: 'Temperatura', icon: '🌡',
+        units: { C: {label:'Celsius (°C)'}, F: {label:'Fahrenheit (°F)'}, K: {label:'Kelvin (K)'} }
+      },
+      data: {
+        name: 'Datos', icon: '💾',
+        units: { B: {label:'Byte', toBase:1}, KB: {label:'Kilobyte', toBase:1024}, MB: {label:'Megabyte', toBase:1048576}, GB: {label:'Gigabyte', toBase:1073741824}, TB: {label:'Terabyte', toBase:1099511627776} }
+      },
+      speed: {
+        name: 'Velocidad', icon: '🚀',
+        units: { 'm/s': {label:'Metro/seg', toBase:1}, 'km/h': {label:'Km/hora', toBase:0.277778}, 'mph': {label:'Milla/hora', toBase:0.44704}, kn: {label:'Nudo', toBase:0.514444}, c: {label:'Luz (c)', toBase:299792458} }
+      },
+      volume: {
+        name: 'Volumen', icon: '🧪',
+        units: { L: {label:'Litro', toBase:1}, mL: {label:'Mililitro', toBase:0.001}, gal: {label:'Galón', toBase:3.78541}, qt: {label:'Cuarto', toBase:0.946353}, pt: {label:'Pinta', toBase:0.473176}, cup: {label:'Taza', toBase:0.236588}, floz: {label:'Onza fluida', toBase:0.0295735}, m3: {label:'Metro cúbico', toBase:1000} }
+      },
+      area: {
+        name: 'Área', icon: '▣',
+        units: { m2: {label:'Metro²', toBase:1}, km2: {label:'Kilómetro²', toBase:1e6}, ha: {label:'Hectárea', toBase:10000}, ac: {label:'Acre', toBase:4046.86}, ft2: {label:'Pie²', toBase:0.092903}, in2: {label:'Pulgada²', toBase:0.00064516} }
+      },
+      time: {
+        name: 'Tiempo', icon: '⏱',
+        units: { s: {label:'Segundo', toBase:1}, min: {label:'Minuto', toBase:60}, h: {label:'Hora', toBase:3600}, d: {label:'Día', toBase:86400}, wk: {label:'Semana', toBase:604800}, mo: {label:'Mes (30d)', toBase:2592000}, yr: {label:'Año (365d)', toBase:31536000} }
+      }
+    };
+
+    let current = 'length';
+
+    function renderTabs() {
+      const tabs = document.getElementById('tabs');
+      const frag = document.createDocumentFragment();
+      Object.entries(categories).forEach(([key, cat]) => {
+        const btn = document.createElement('button');
+        btn.className = `tab${key === current ? ' active' : ''}`;
+        btn.dataset.cat = key;
+        btn.textContent = `${cat.icon} ${cat.name}`;
+        btn.setAttribute('aria-label', cat.name);
+        frag.appendChild(btn);
+      });
+      tabs.innerHTML = '';
+      tabs.appendChild(frag);
+    }
+
+    function renderSelects() {
+      const from = document.getElementById('from');
+      const to = document.getElementById('to');
+      const units = categories[current].units;
+      const frag1 = document.createDocumentFragment();
+      const frag2 = document.createDocumentFragment();
+      Object.entries(units).forEach(([key, val], i) => {
+        const opt1 = document.createElement('option');
+        opt1.value = key; opt1.textContent = val.label ? `${key} — ${val.label}` : key;
+        if (i === 0) opt1.selected = true;
+        frag1.appendChild(opt1);
+        const opt2 = document.createElement('option');
+        opt2.value = key; opt2.textContent = val.label ? `${key} — ${val.label}` : key;
+        if (i === 1) opt2.selected = true;
+        frag2.appendChild(opt2);
+      });
+      from.innerHTML = ''; from.appendChild(frag1);
+      to.innerHTML = ''; to.appendChild(frag2);
+    }
+
+    function convertTemp(value, from, to) {
+      let c;
+      if (from === 'C') c = value;
+      else if (from === 'F') c = (value - 32) * 5 / 9;
+      else if (from === 'K') c = value - 273.15;
+      if (to === 'C') return c;
+      if (to === 'F') return c * 9 / 5 + 32;
+      if (to === 'K') return c + 273.15;
+      return NaN;
+    }
+
+    function formatResult(num) {
+      if (isNaN(num) || !isFinite(num)) return 'Error';
+      if (Math.abs(num) >= 1e12 || (Math.abs(num) < 1e-6 && num !== 0)) return num.toExponential(4);
+      return num.toLocaleString('es-ES', { maximumFractionDigits: 8, minimumFractionDigits: 0 });
+    }
+
+    function update() {
+      const value = parseFloat(document.getElementById('value').value);
+      if (isNaN(value)) { document.getElementById('result').textContent = 'Ingresa un número válido'; return; }
+      const from = document.getElementById('from').value;
+      const toEl = document.getElementById('to');
+      if (!toEl) return;
+      const to = toEl.value;
+      let result;
+
+      if (current === 'temperature') {
+        result = convertTemp(value, from, to);
+      } else {
+        const units = categories[current].units;
+        const fromUnit = units[from];
+        const toUnit = units[to];
+        if (!fromUnit || !toUnit) return;
+        const baseValue = value * fromUnit.toBase;
+        result = baseValue / toUnit.toBase;
+      }
+
+      const formatted = formatResult(result);
+      const fromLabel = categories[current].units[from].label || from;
+      const toLabel = categories[current].units[to].label || to;
+      document.getElementById('result').textContent = `${value} ${from} = ${formatted} ${to}`;
+    }
+
+    document.getElementById('tabs').addEventListener('click', e => {
+      const tab = e.target.closest('.tab');
+      if (tab) { current = tab.dataset.cat; renderTabs(); renderSelects(); update(); }
+    });
+
+    document.getElementById('swapBtn').addEventListener('click', () => {
+      const from = document.getElementById('from');
+      const to = document.getElementById('to');
+      const tmp = from.value; from.value = to.value; to.value = tmp;
+      update();
+    });
+
+    document.getElementById('value').addEventListener('input', update);
+    document.getElementById('from').addEventListener('change', update);
+    document.getElementById('to').addEventListener('change', update);
+
+    renderTabs();
+    renderSelects();
+  </script>
+</body>
+</html>

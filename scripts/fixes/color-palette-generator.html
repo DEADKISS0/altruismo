@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paleta de Colores Accesible</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0A0F1A; --surface: #111827; --surface-2: #1E293B;
+      --text: #E5E7EB; --text-dim: #94A3B8; --accent: #06B6D4;
+      --border: #334155; --radius: 12px; --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; padding: 1.5rem; line-height: 1.6;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 2rem; }
+    h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); margin-bottom: 0.5rem; }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--text-dim); font-size: 0.95rem; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .input-row {
+      display: flex; gap: 0.75rem; align-items: center;
+      flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .input-row label { font-size: 0.85rem; color: var(--text-dim); min-width: 80px; }
+    input[type="text"] {
+      padding: 0.75rem 1rem; background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: var(--font-mono);
+      font-size: 1rem; width: 140px; transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(6,182,212,0.15); }
+    input[type="color"] { width: 48px; height: 48px; border: none; border-radius: 8px; cursor: pointer; padding: 2px; background: var(--surface-2); }
+    input.error { border-color: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
+    .palette-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+    .palette-card {
+      border-radius: 8px; padding: 1rem; aspect-ratio: 1;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      border: 1px solid var(--border); cursor: pointer; transition: transform 0.2s;
+      position: relative;
+    }
+    .palette-card:hover { transform: translateY(-4px); }
+    .palette-card .hex { font-family: var(--font-mono); font-size: 0.75rem; }
+    .palette-card .role { font-size: 0.65rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; }
+    .contrast-grid { display: grid; gap: 0.75rem; }
+    .contrast-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1rem; background: var(--surface-2);
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .contrast-row .pair { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+    .contrast-row .swatch { width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--border); }
+    .badge {
+      padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+    }
+    .badge.aaa { background: rgba(6,182,212,0.15); color: #06B6D4; }
+    .badge.aa { background: rgba(16,185,129,0.15); color: #10B981; }
+    .badge.fail { background: rgba(239,68,68,0.15); color: #EF4444; }
+    .btn {
+      padding: 0.75rem 1.5rem; border: none; border-radius: 8px;
+      background: var(--accent); color: var(--text); font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface-2); border: 1px solid var(--border); }
+    .error-msg { color: #EF4444; font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    .error-msg.show { display: block; }
+    .success-msg { color: #10B981; font-size: 0.85rem; margin-top: 0.5rem; }
+    .toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(100px);
+      background: var(--surface); border: 1px solid var(--accent); border-radius: 8px;
+      padding: 0.75rem 1.5rem; font-size: 0.85rem; opacity: 0; transition: all 0.3s; z-index: 100;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    @media (max-width: 500px) { .palette-grid { grid-template-columns: repeat(3, 1fr); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Paleta de Colores <span>Accesible</span></h1>
+      <p class="subtitle">Genera paletas armónicas, verifica contraste WCAG AA/AAA y copia al instante.</p>
+    </header>
+
+    <div class="card">
+      <h2>Color base</h2>
+      <div class="input-row">
+        <label for="baseColor">HEX</label>
+        <input type="text" id="baseColor" value="#06B6D4" maxlength="7" placeholder="#RRGGBB">
+        <input type="color" id="colorPicker" value="#06B6D4">
+        <button class="btn" id="randomBtn">Aleatorio</button>
+      </div>
+      <div class="error-msg" id="errorMsg">Color HEX inválido. Usa formato #RRGGBB.</div>
+    </div>
+
+    <div class="card">
+      <h2>Paleta generada</h2>
+      <div class="palette-grid" id="palette"></div>
+    </div>
+
+    <div class="card">
+      <h2>Contraste WCAG</h2>
+      <div class="contrast-grid" id="contrastList"></div>
+    </div>
+
+    <div class="toast" id="toast">¡Copiado al portapapeles!</div>
+  </div>
+
+  <script>
+    const PALETTE_ROLES = [
+      { role: 'Fondo', usage: 'bg' },
+      { role: 'Superficie', usage: 'cards, paneles' },
+      { role: 'Texto', usage: 'texto principal' },
+      { role: 'Acento', usage: 'botones, links' },
+      { role: 'Secundario', usage: 'detalles, bordes' },
+    ];
+
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
+      if (!/^[0-9A-Fa-f]{6}$/.test(clean)) return null;
+      return { r: parseInt(clean.slice(0,2), 16), g: parseInt(clean.slice(2,4), 16), b: parseInt(clean.slice(4,6), 16) };
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r,g,b].map(x => Math.round(x).toString(16).padStart(2,'0')).join('').toUpperCase();
+    }
+
+    function luminance(r, g, b) {
+      const a = [r,g,b].map(v => { v /= 255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); });
+      return 0.2126*a[0] + 0.7152*a[1] + 0.0722*a[2];
+    }
+
+    function contrastRatio(c1, c2) {
+      const l1 = luminance(c1.r, c1.g, c1.b) + 0.05;
+      const l2 = luminance(c2.r, c2.g, c2.b) + 0.05;
+      return Math.max(l1,l2) / Math.min(l1,l2);
+    }
+
+    function generatePalette(hex) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return null;
+      const base = { r: rgb.r, g: rgb.g, b: rgb.b };
+      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+      return [
+        { ...base, role: 'Fondo' },
+        { ...hslToRgb(hsl.h, Math.max(0, hsl.s-20), Math.min(95, hsl.l+15)), role: 'Superficie' },
+        { ...hslToRgb(hsl.h, Math.max(0, hsl.s-30), Math.min(90, hsl.l+30)), role: 'Secundario' },
+        { ...base, role: 'Acento' },
+        { ...hslToRgb(hsl.h, Math.max(0, hsl.s-10), Math.max(5, hsl.l-35)), role: 'Texto' },
+      ];
+    }
+
+    function rgbToHsl(r, g, b) {
+      r/=255; g/=255; b/=255;
+      const max=Math.max(r,g,b), min=Math.min(r,g,b);
+      let h=0, s=0, l=(max+min)/2;
+      if (max !== min) {
+        const d = max-min;
+        s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+        if (max===r) h = (g-b)/d + (g<b?6:0);
+        else if (max===g) h = (b-r)/d + 2;
+        else h = (r-g)/d + 4;
+        h /= 6;
+      }
+      return { h: h*360, s: s*100, l: l*100 };
+    }
+
+    function hslToRgb(h, s, l) {
+      h/=360; s/=100; l/=100;
+      let r, g, b;
+      if (s===0) { r=g=b=l; }
+      else {
+        const hue2rgb = (p,q,t) => {
+          if (t<0) t+=1; if (t>1) t-=1;
+          if (t<1/6) return p+(q-p)*6*t;
+          if (t<1/2) return q;
+          if (t<2/3) return p+(q-p)*(2/3-t)*6;
+          return p;
+        };
+        const q = l<0.5 ? l*(1+s) : l+s-l*s;
+        const p = 2*l - q;
+        r = hue2rgb(p,q,h+1/3);
+        g = hue2rgb(p,q,h);
+        b = hue2rgb(p,q,h-1/3);
+      }
+      return { r: Math.round(r*255), g: Math.round(g*255), b: Math.round(b*255) };
+    }
+
+    function isValidHex(str) {
+      return /^#[0-9A-Fa-f]{6}$/.test(str);
+    }
+
+    function getContrastLevel(ratio) {
+      if (ratio >= 7) return { level: 'AAA', class: 'aaa', label: 'AAA' };
+      if (ratio >= 4.5) return { level: 'AA', class: 'aa', label: 'AA' };
+      return { level: 'FAIL', class: 'fail', label: 'Fail' };
+    }
+
+    function renderPalette(hex) {
+      const errorEl = document.getElementById('errorMsg');
+      errorEl.classList.remove('show');
+      document.getElementById('baseColor').classList.remove('error');
+
+      if (!isValidHex(hex)) {
+        errorEl.classList.add('show');
+        document.getElementById('baseColor').classList.add('error');
+        return;
+      }
+
+      const palette = generatePalette(hex);
+      if (!palette) return;
+
+      const bgColor = palette[0];
+      const surfaceColor = palette[1];
+      const secondaryColor = palette[2];
+      const accentColor = palette[3];
+      const textColor = palette[4];
+
+      const paletteEl = document.getElementById('palette');
+      paletteEl.innerHTML = palette.map((c, i) => {
+        const hexStr = rgbToHex(c.r, c.g, c.b);
+        const textLum = luminance(c.r, c.g, c.b);
+        const textColorHex = textLum > 0.5 ? '#000000' : '#FFFFFF';
+        return `<div class="palette-card" style="background:${hexStr};color:${textColorHex}" data-color="${hexStr}" title="Click para copiar">
+          <span class="hex">${hexStr}</span>
+          <span class="role">${PALETTE_ROLES[i].role}</span>
+        </div>`;
+      }).join('');
+
+      const pairs = [
+        { name: 'Texto / Fondo', fg: textColor, bg: bgColor },
+        { name: 'Texto / Superficie', fg: textColor, bg: surfaceColor },
+        { name: 'Acento / Fondo', fg: accentColor, bg: bgColor },
+        { name: 'Acento / Superficie', fg: accentColor, bg: surfaceColor },
+        { name: 'Acento / Texto', fg: accentColor, bg: textColor },
+      ];
+
+      const contrastEl = document.getElementById('contrastList');
+      contrastEl.innerHTML = pairs.map(p => {
+        const ratio = contrastRatio(p.fg, p.bg);
+        const { class: cls, label } = getContrastLevel(ratio);
+        const fgHex = rgbToHex(p.fg.r, p.fg.g, p.fg.b);
+        const bgHex = rgbToHex(p.bg.r, p.bg.g, p.bg.b);
+        return `<div class="contrast-row">
+          <div class="pair">
+            <span class="swatch" style="background:${fgHex}"></span>
+            <span style="color:var(--text-dim)">sobre</span>
+            <span class="swatch" style="background:${bgHex}"></span>
+            <span>${p.name}</span>
+          </div>
+          <span>${ratio.toFixed(2)}:1 <span class="badge ${cls}">${label}</span></span>
+        </div>`;
+      }).join('');
+
+      document.getElementById('colorPicker').value = hex;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    document.getElementById('baseColor').addEventListener('input', e => {
+      let val = e.target.value;
+      if (val && !val.startsWith('#')) val = '#' + val;
+      e.target.value = val;
+      if (val.length === 7) renderPalette(val);
+    });
+
+    document.getElementById('colorPicker').addEventListener('input', e => {
+      document.getElementById('baseColor').value = e.target.value;
+      renderPalette(e.target.value);
+    });
+
+    document.getElementById('randomBtn').addEventListener('click', () => {
+      const r = Math.floor(Math.random()*200);
+      const g = Math.floor(Math.random()*200);
+      const b = Math.floor(Math.random()*200);
+      const hex = rgbToHex(r, g, b);
+      document.getElementById('baseColor').value = hex;
+      renderPalette(hex);
+    });
+
+    document.getElementById('palette').addEventListener('click', e => {
+      const card = e.target.closest('.palette-card');
+      if (card) {
+        navigator.clipboard.writeText(card.dataset.color).then(() => showToast('Copiado: ' + card.dataset.color)).catch(() => {});
+      }
+    });
+
+    renderPalette('#06B6D4');
+  </script>
+</body>
+</html>
