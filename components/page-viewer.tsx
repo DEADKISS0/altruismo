@@ -316,8 +316,14 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
                 ) : (
                   <iframe
                     src={toolUrl || undefined}
-                    className="w-full h-[600px] border-0"
-                    sandbox="allow-scripts allow-forms allow-popups"
+                    width="100%"
+                    height="600px"
+                    style={{ border: "none", backgroundColor: "#000000", overflow: "hidden" }}
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
                     title={page.title}
                   />
                 )}
@@ -349,8 +355,12 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
                   <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
                     <iframe
                       src={toolUrl}
-                      className="w-[95vw] h-[90vh] border-0 rounded-lg"
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      style={{ width: "95vw", height: "90vh", border: "none", borderRadius: "8px", backgroundColor: "#000000" }}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
                       title={page.title}
                     />
                   </DialogContent>
