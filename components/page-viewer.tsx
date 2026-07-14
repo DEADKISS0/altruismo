@@ -125,7 +125,6 @@ export function PageViewer({ page }: PageViewerProps) {
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
   const [toolUrl, setToolUrl] = useState<string | null>(null);
-  const [toolUrl, setToolUrl] = useState<string | null>(null);
   const [toolError, setToolError] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
