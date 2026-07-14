@@ -1,6 +1,7 @@
 import { Hero } from "@/components/hero";
 import { PageCard } from "@/components/page-card";
 import { ChallengeCard } from "@/components/challenge-card";
+import { ActivityFeed } from "@/components/activity-feed";
 import { getPages, getChallenges, getFeaturedPages } from "@/lib/services/server";
 import { LocaleParams } from "@/types";
 
@@ -33,17 +34,28 @@ export default async function HomePage({ params }: LocaleParams) {
         </div>
       </section>
 
-      <section className="py-16">
+      <section className="py-16 border-b border-border">
         <div className="container mx-auto px-4">
-          <div className="flex items-end justify-between mb-8">
-            <h2 className="font-heading text-4xl md:text-5xl text-parchment">
-              {locale === "es" ? "RETOS ACTIVOS" : "ACTIVE CHALLENGES"}
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {challenges.slice(0, 2).map((challenge) => (
-              <ChallengeCard key={challenge.id} challenge={challenge} />
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {/* Recent Activity */}
+            <div>
+              <h2 className="font-heading text-3xl text-parchment mb-6">
+                {locale === "es" ? "ACTIVIDAD RECIENTE" : "RECENT ACTIVITY"}
+              </h2>
+              <ActivityFeed limit={5} />
+            </div>
+
+            {/* Active Challenges */}
+            <div>
+              <h2 className="font-heading text-3xl text-parchment mb-6">
+                {locale === "es" ? "RETOS ACTIVOS" : "ACTIVE CHALLENGES"}
+              </h2>
+              <div className="space-y-4">
+                {challenges.slice(0, 3).map((challenge) => (
+                  <ChallengeCard key={challenge.id} challenge={challenge} />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
