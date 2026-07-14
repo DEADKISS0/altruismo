@@ -285,6 +285,55 @@ async function uploadToSupabase(supabase, botUserId, title, html, category) {
   return { id: page.id, publicUrl };
 }
 
+async function createGitHubRepo(name, description) {
+  if (!GITHUB_TOKEN) throw new Error('Falta GH_PAT');
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  const repoName = `tool-${slug}`;
+
+  const checkRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${repoName}`, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' },
+  });
+
+  if (checkRes.status === 404) {
+    const createRes = await fetch(`https://api.github.com/users/${GITHUB_OWNER}/repos`, {
+      method: 'POST',
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: repoName, description, private: false, auto_init: true }),
+    });
+    if (!createRes.ok) throw new Error(`GitHub create failed: ${(await createRes.json()).message}`);
+  } else if (!checkRes.ok) {
+    throw new Error(`GitHub check failed: ${checkRes.status}`);
+  }
+  return repoName;
+}
+
+async function commitToGitHub(repoName, content) {
+  const base64 = Buffer.from(content).toString('base64');
+  const getRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${repoName}/contents/index.html`, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' },
+  });
+
+  const body = { message: 'feat: update tool', content: base64 };
+  if (getRes.status === 200) {
+    const existing = await getRes.json();
+    body.sha = existing.sha;
+  }
+
+  const putRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${repoName}/contents/index.html`, {
+    method: 'PUT',
+    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!putRes.ok) throw new Error(`GitHub commit failed: ${(await putRes.json()).message}`);
+}
+
+async function syncToGitHub(title, html) {
+  const description = generateDescription(html);
+  const repoName = await createGitHubRepo(title, description);
+  await commitToGitHub(repoName, html);
+  return `https://github.com/${GITHUB_OWNER}/${repoName}`;
+}
+
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function runCycle(supabase, cycleNum) {
@@ -336,7 +385,17 @@ async function runCycle(supabase, cycleNum) {
     }
   }
 
-  return { idea: research.idea, category: research.category, file: htmlFile, url: pageUrl };
+  let githubUrl = null;
+  if (GITHUB_SYNC && GITHUB_TOKEN) {
+    try {
+      githubUrl = await syncToGitHub(safeTitle, html);
+      console.log(`🐙 GitHub: ${githubUrl}`);
+    } catch (e) {
+      console.error(`❌ Error GitHub: ${e.message}`);
+    }
+  }
+
+  return { idea: research.idea, category: research.category, file: htmlFile, url: pageUrl, githubUrl };
 }
 
 async function main() {
@@ -345,6 +404,7 @@ async function main() {
   console.log('\n🌱 FARM PIPELINE — Pipeline completo de la granja');
   console.log(`🤖 Modelo: ${LLM.model}`);
   console.log(`⏰ Intervalo: 2h`);
+  console.log(`🐙 GitHub Sync: ${GITHUB_SYNC ? 'SÍ' : 'NO'}`);
 
   const supabase = await createSupabaseClient();
 
@@ -375,7 +435,7 @@ async function main() {
   console.log('\n✅ RESUMEN');
   console.log(`   Herramientas generadas: ${results.length}/${cyclesToRun}`);
   results.forEach((r, i) => {
-    console.log(`   ${i+1}. ${r.idea} [${r.category}]${r.url ? ` → ${r.url}` : ''}`);
+    console.log(`   ${i+1}. ${r.idea} [${r.category}]${r.url ? ` → ${r.url}` : ''}${r.githubUrl ? ` | ${r.githubUrl}` : ''}`);
   });
   console.log('');
 }

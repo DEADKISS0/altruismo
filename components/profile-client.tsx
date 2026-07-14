@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useLocale } from "@/components/locale-provider";
+import { useAuth } from "@/components/auth-provider";
 import { User, Page } from "@/types";
 import { PageCard } from "@/components/page-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,8 +19,12 @@ interface ProfileClientProps {
 
 export function ProfileClient({ user, pages: initialPages }: ProfileClientProps) {
   const { messages } = useLocale();
+  const { user: currentUser } = useAuth();
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [activeTab, setActiveTab] = useState("published");
+
+  const isOwnProfile = currentUser?.id === user.id;
+  const openSourcePages = pages.filter((p) => p.is_open_source);
 
   useEffect(() => {
     getPages({ authorId: user.id }).then(setPages);
@@ -69,14 +74,16 @@ export function ProfileClient({ user, pages: initialPages }: ProfileClientProps)
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={`grid w-full ${isOwnProfile ? "grid-cols-2" : "grid-cols-1"}`}>
           <TabsTrigger value="published" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
             {messages.profile.publishedPages}
           </TabsTrigger>
-          <TabsTrigger value="tools" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
-            <Wrench className="mr-2 h-4 w-4" />
-            {messages.profile.myTools}
-          </TabsTrigger>
+          {isOwnProfile && (
+            <TabsTrigger value="tools" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
+              <Wrench className="mr-2 h-4 w-4" />
+              {messages.profile.myTools}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="published" className="mt-6">
@@ -91,17 +98,19 @@ export function ProfileClient({ user, pages: initialPages }: ProfileClientProps)
           )}
         </TabsContent>
 
-        <TabsContent value="tools" className="mt-6">
-          {pages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pages.map((page) => (
-                <PageCard key={page.id} page={page} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-ash">{messages.profile.noTools}</p>
-          )}
-        </TabsContent>
+        {isOwnProfile && (
+          <TabsContent value="tools" className="mt-6">
+            {openSourcePages.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {openSourcePages.map((page) => (
+                  <PageCard key={page.id} page={page} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-ash">{messages.profile.noTools}</p>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

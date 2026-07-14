@@ -1,6 +1,5 @@
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import type { Database } from "@/types/database";
 
 export async function DELETE(
   request: NextRequest,
@@ -9,32 +8,44 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    const supabase = createServiceRoleClient();
+    const supabase = await createClient();
 
-    const { data: page, error: fetchError } = await supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: page } = await supabase
       .from("pages")
-      .select("file_url, author_id")
+      .select("id, author_id, file_url")
       .eq("id", id)
-      .single();
+      .single<{ id: string; author_id: string; file_url: string } | null>();
 
-    if (fetchError || !page) {
+    if (!page) {
       return NextResponse.json({ error: "Page not found" }, { status: 404 });
     }
 
-    const pageRow = page as Database["public"]["Tables"]["pages"]["Row"];
-    if (pageRow.file_url) {
-      const urlParts = pageRow.file_url.split("/");
-      const bucketIndex = urlParts.findIndex((p) => p === "pages");
-      if (bucketIndex !== -1 && bucketIndex + 1 < urlParts.length) {
-        const storagePath = urlParts.slice(bucketIndex + 1).join("/");
-        await supabase.storage.from("pages").remove([storagePath]);
-      }
+    if (page.author_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { error: deleteError } = await supabase.from("pages").delete().eq("id", id);
+    try {
+      if (page.file_url.includes("supabase.co")) {
+        const url = new URL(page.file_url);
+        const pathMatch = url.pathname.match(/\/object\/public\/pages\/(.*)/);
+        if (pathMatch) {
+          await supabase.storage.from("pages").remove([pathMatch[1]]);
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
 
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    const { error } = await supabase.from("pages").delete().eq("id", id);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });

@@ -21,7 +21,10 @@ import {
   UserMinus,
   Heart,
   Maximize2,
-  ExternalLink as PopOut,
+  Share2,
+  Link as LinkIcon,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react";
 import {
   isFollowing,
@@ -52,7 +55,7 @@ function CommentItem({
   onReply: (parentId: string) => void;
   depth?: number;
 }) {
-  const { locale } = useLocale();
+  const { locale, messages } = useLocale();
   const { user } = useAuth();
   const [replies, setReplies] = useState<Comment[]>([]);
 
@@ -89,7 +92,7 @@ function CommentItem({
               onClick={() => onReply(comment.id)}
               className="text-xs text-ember hover:underline mt-1"
             >
-              Responder
+              {messages.page.reply}
             </button>
           )}
         </div>
@@ -111,7 +114,7 @@ export function PageViewer({ page }: PageViewerProps) {
   const { messages, locale } = useLocale();
   const { user } = useAuth();
   const t = messages.page;
-  const [following, setFollowing] = useState(false);
+  const [following, setFollowing] = useState<boolean | null>(null);
   const isOwnPage = user?.id === page.author_id;
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsCount, setCommentsCount] = useState(page.comments_count || 0);
@@ -124,6 +127,7 @@ export function PageViewer({ page }: PageViewerProps) {
   const [toolUrl, setToolUrl] = useState<string | null>(null);
   const [toolError, setToolError] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
     if (page.file_url) {
@@ -146,10 +150,15 @@ export function PageViewer({ page }: PageViewerProps) {
     getPageLikes(page.id).then(setLikes);
     isPageLiked(page.id).then(setLiked);
     incrementPageViews(page.id).catch(() => {});
+    // Check bookmark from localStorage
+    try {
+      const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]");
+      setIsBookmarked(bookmarks.includes(page.id));
+    } catch {}
   }, [page.author_id, page.id, isOwnPage]);
 
   const handleFollow = async () => {
-    if (!user) return;
+    if (!user || following === null) return;
     try {
       if (following) {
         await unfollowUser(page.author_id);
@@ -161,6 +170,45 @@ export function PageViewer({ page }: PageViewerProps) {
     } catch {
       toast.error(messages.common.error);
     }
+  };
+
+  const handleShare = async (platform: string) => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const text = `${page.title} — ${page.description || ""}`;
+    const shareUrls: Record<string, string> = {
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+    };
+    if (shareUrls[platform]) {
+      window.open(shareUrls[platform], "_blank", "width=600,height=400");
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success(messages.page.linkCopied || "Enlace copiado");
+    } catch {
+      toast.error(messages.common.error);
+    }
+  };
+
+  const handleBookmark = () => {
+    try {
+      const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]");
+      if (isBookmarked) {
+        const updated = bookmarks.filter((id: string) => id !== page.id);
+        localStorage.setItem("bookmarks", JSON.stringify(updated));
+        setIsBookmarked(false);
+        toast.success(messages.page.bookmarkRemoved || "Eliminado de favoritos");
+      } else {
+        bookmarks.push(page.id);
+        localStorage.setItem("bookmarks", JSON.stringify(bookmarks));
+        setIsBookmarked(true);
+        toast.success(messages.page.bookmarkAdded || "Añadido a favoritos");
+      }
+    } catch {}
   };
 
   const handleComment = async (e: React.FormEvent) => {
@@ -242,7 +290,7 @@ export function PageViewer({ page }: PageViewerProps) {
               <CardContent className="p-0">
                 {toolError ? (
                   <div className="w-full h-[600px] flex items-center justify-center text-ash flex-col gap-4">
-                    <p>No se puede cargar esta herramienta</p>
+                    <p>{messages.page.error}</p>
                     <p className="text-sm">El desarrollador no incluyó el archivo fuente.</p>
                   </div>
                 ) : toolUrl ? (
@@ -255,7 +303,7 @@ export function PageViewer({ page }: PageViewerProps) {
                   />
                 ) : (
                   <div className="w-full h-[600px] flex items-center justify-center text-ash">
-                    Cargando herramienta...
+                    {messages.page.loading}
                   </div>
                 )}
               </CardContent>
@@ -268,7 +316,7 @@ export function PageViewer({ page }: PageViewerProps) {
                   onClick={() => window.open(toolUrl, "_blank")}
                   title="Abrir en nueva pestaña"
                 >
-                  <PopOut className="h-4 w-4 text-parchment" />
+                  <ExternalLink className="h-4 w-4 text-parchment" />
                 </Button>
                 <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
                   <DialogTrigger
@@ -315,13 +363,13 @@ export function PageViewer({ page }: PageViewerProps) {
                   <form onSubmit={handleComment} className="space-y-2">
                     {replyTo && (
                       <div className="text-sm text-ash">
-                        Respondiendo comentario{" "}
+                        {messages.page.replyingTo}{" "}
                         <button
                           type="button"
                           onClick={() => setReplyTo(null)}
                           className="text-ember hover:underline"
                         >
-                          (cancelar)
+                          ({messages.page.cancelReply})
                         </button>
                       </div>
                     )}
@@ -350,7 +398,7 @@ export function PageViewer({ page }: PageViewerProps) {
                     ))
                   ) : (
                     <p className="text-ash py-4">
-                      No hay comentarios aún. Sé el primero.
+                      {messages.page.noComments}
                     </p>
                   )}
                 </div>
@@ -380,6 +428,51 @@ export function PageViewer({ page }: PageViewerProps) {
                     {page.views}
                   </span>
                 </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => handleShare("twitter")}
+                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
+                    aria-label="Compartir en Twitter"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleShare("facebook")}
+                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
+                    aria-label="Compartir en Facebook"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleShare("linkedin")}
+                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
+                    aria-label="Compartir en LinkedIn"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleCopyLink}
+                    className="p-2 rounded-lg bg-void hover:bg-pitch text-ash hover:text-parchment transition-colors"
+                    aria-label="Copiar enlace"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleBookmark}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isBookmarked
+                        ? "bg-ember/10 text-ember"
+                        : "bg-void hover:bg-pitch text-ash hover:text-parchment"
+                    }`}
+                    aria-label={isBookmarked ? "Quitar de favoritos" : "Añadir a favoritos"}
+                  >
+                    {isBookmarked ? (
+                      <BookmarkCheck className="h-4 w-4" />
+                    ) : (
+                      <Bookmark className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               <h1 className="font-heading text-4xl text-parchment">{page.title}</h1>
               <p className="text-ash">{page.description}</p>
@@ -404,10 +497,12 @@ export function PageViewer({ page }: PageViewerProps) {
                 onClick={handleFollow}
                 variant="outline"
                 className="w-full border-parchment/20 text-parchment hover:bg-void"
-                disabled={isOwnPage}
+                disabled={isOwnPage || following === null}
               >
                 {isOwnPage ? (
                   <>{messages.page.yourPage}</>
+                ) : following === null ? (
+                  <span className="h-4" />
                 ) : following ? (
                   <>
                     <UserMinus className="mr-2 h-4 w-4" />

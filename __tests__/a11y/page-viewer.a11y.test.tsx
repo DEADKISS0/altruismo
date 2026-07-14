@@ -133,7 +133,7 @@ describe('Accessibility - Keyboard Navigation', () => {
   it('should have visible focus indicators', async () => {
     const { container } = render(<PageViewer page={mockPage} />);
     const focusable = container.querySelectorAll('button, a, [tabindex]:not([tabindex="-1"])');
-    focusableElements.forEach(el => {
+    focusable.forEach(el => {
       const styles = window.getComputedStyle(el);
       expect(styles.outline).not.toBe('none');
     });

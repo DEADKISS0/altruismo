@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { PageCard } from "@/components/page-card";
 import { SearchBar } from "@/components/search-bar";
 import { CategoryFilter } from "@/components/category-filter";
 import { PageCategory, Page } from "@/types";
 import { getPages } from "@/lib/services";
-import { Search, FilterX, Sparkles } from "lucide-react";
+import { Search, FilterX, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const ITEMS_PER_PAGE = 9;
 
 interface FeedClientProps {
   initialPages: Page[];
@@ -22,6 +24,7 @@ export function FeedClient({ initialPages }: FeedClientProps) {
   const [pages, setPages] = useState<Page[]>(initialPages);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const isInitialMount = useRef(true);
 
@@ -33,6 +36,7 @@ export function FeedClient({ initialPages }: FeedClientProps) {
     }
     setHasSearched(true);
     setIsLoading(true);
+    setCurrentPage(1);
     getPages({ category, search }).then((data) => {
       setPages(data);
       setIsLoading(false);
@@ -45,7 +49,14 @@ export function FeedClient({ initialPages }: FeedClientProps) {
     setSearch("");
     setCategory(null);
     setHasSearched(false);
+    setCurrentPage(1);
   };
+
+  const totalPages = Math.ceil(pages.length / ITEMS_PER_PAGE);
+  const paginatedPages = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return pages.slice(start, start + ITEMS_PER_PAGE);
+  }, [pages, currentPage]);
 
   return (
     <div className="container mx-auto px-4 py-12 fade-in">
@@ -83,14 +94,62 @@ export function FeedClient({ initialPages }: FeedClientProps) {
             />
           ))}
         </div>
-      ) : pages.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pages.map((page, index) => (
-            <div key={page.id} className="fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-              <PageCard page={page} />
+      ) : paginatedPages.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedPages.map((page, index) => (
+              <div key={page.id} className="fade-in" style={{ animationDelay: `${index * 50}ms` }}>
+                <PageCard page={page} />
+              </div>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-10">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="border-border text-parchment"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={currentPage === pageNum ? "bg-ember text-parchment" : "border-border text-parchment"}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="border-border text-parchment"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       ) : (
         <div className="text-center py-24 fade-in slide-up">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-pitch/50 border border-border mb-6">
