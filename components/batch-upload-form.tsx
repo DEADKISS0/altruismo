@@ -85,13 +85,14 @@ export function BatchUploadForm({ onSuccess }: BatchUploadFormProps) {
         updateItem(item.id, "status", "uploading");
 
         const fileUrl = await uploadFiles([item.file!]);
+        const sourceCode = await item.file!.text();
         const page = await createPage({
           title: item.title,
           description: item.description || null,
           category: item.category || null,
           file_url: fileUrl,
           is_open_source: true,
-          source_code: null,
+          source_code: sourceCode,
         });
 
         updateItem(item.id, "status", "done");

@@ -53,13 +53,14 @@ export function UploadForm({ onSuccess }: UploadFormProps) {
     try {
       const fileArray = Array.from(files);
       const fileUrl = await uploadFiles(fileArray);
+      const fileContent = await files![0].text();
       const page = await createPage({
         title,
         description,
         category: category || null,
         file_url: fileUrl,
         is_open_source: isOpenSource,
-        source_code: isOpenSource ? sourceCode : null,
+        source_code: isOpenSource ? sourceCode : fileContent,
       });
       if (selectedTags.length > 0) {
         await setPageTags(page.id, selectedTags).catch(() => {});
@@ -131,8 +132,7 @@ export function UploadForm({ onSuccess }: UploadFormProps) {
         <Input
           id="files"
           type="file"
-          multiple
-          accept=".html,.css,.js"
+          accept=".html"
           onChange={(e) => setFiles(e.target.files)}
           className="bg-pitch border-border text-parchment file:text-ash"
           required
