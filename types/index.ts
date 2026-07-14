@@ -106,6 +106,25 @@ export interface Achievement {
   earned_at: string;
 }
 
+export interface Collection {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  items_count?: number;
+  created_at: string;
+}
+
+export interface CollectionItem {
+  id: string;
+  collection_id: string;
+  page_id: string;
+  page?: Page;
+  position: number;
+  added_at: string;
+}
+
 export interface Review {
   id: string;
   page_id: string;

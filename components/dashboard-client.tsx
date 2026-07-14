@@ -6,6 +6,7 @@ import { useLocale } from "@/components/locale-provider";
 import { useAuth } from "@/components/auth-provider";
 import { User, Page } from "@/types";
 import { PageCard } from "@/components/page-card";
+import { CollectionsClient } from "@/components/collections-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +117,9 @@ export function DashboardClient({ user, pages: initialPages, locale }: Dashboard
           <TabsTrigger value="upload" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
             Subir herramienta
           </TabsTrigger>
+          <TabsTrigger value="collections" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
+            Colecciones
+          </TabsTrigger>
           <TabsTrigger value="analytics" className="data-[state=active]:bg-ember data-[state=active]:text-parchment">
             {messages.dashboard.tabs.analytics}
           </TabsTrigger>
@@ -200,6 +204,12 @@ export function DashboardClient({ user, pages: initialPages, locale }: Dashboard
               </Button>
             </Link>
           </div>
+        </TabsContent>
+
+        <TabsContent value="collections" className="space-y-6">
+          <h2 className="font-heading text-3xl text-parchment">{messages.dashboard.tabs.tools === "Mis herramientas" ? "Colecciones" : "Collections"}</h2>
+          <p className="text-ash mb-4">{locale === "es" ? "Organiza tus herramientas favoritas en colecciones." : "Organize your favorite tools into collections."}</p>
+          <CollectionsClient />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">

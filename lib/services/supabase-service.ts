@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution, Collection, CollectionItem } from "@/types";
 
 const PAGES_BUCKET = "pages";
 
@@ -584,6 +584,63 @@ export function createService(supabase: any) {
       return Object.entries(counts).map(([k, v]) => ({ rating: Number(k), count: v }));
     }
     return (data || []).map((row: any) => ({ rating: row.rating, count: row.count }));
+  }
+
+  // Collections
+  async function getCollections(userId?: string): Promise<Collection[]> {
+    let query = supabase.from("collections").select("*").order("created_at", { ascending: false });
+    if (userId) query = query.eq("user_id", userId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
+      id: row.id, user_id: row.user_id, name: row.name,
+      description: row.description, is_public: row.is_public, created_at: row.created_at,
+    }));
+  }
+
+  async function getCollectionItems(collectionId: string): Promise<CollectionItem[]> {
+    const { data, error } = await supabase
+      .from("collection_items")
+      .select("*, page:pages(*, author:profiles(*), categories(slug))")
+      .eq("collection_id", collectionId)
+      .order("position");
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
+      id: row.id, collection_id: row.collection_id, page_id: row.page_id,
+      page: row.page ? mapPage({ ...row.page, category_slug: row.page.categories?.slug }) : undefined,
+      position: row.position, added_at: row.added_at,
+    }));
+  }
+
+  async function createCollection(name: string, description?: string, isPublic?: boolean): Promise<Collection> {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) throw new Error("No current user");
+    const { data, error } = await supabase
+      .from("collections")
+      .insert({ user_id: currentUser.id, name, description: description || null, is_public: isPublic !== false })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return { id: data.id, user_id: data.user_id, name: data.name, description: data.description, is_public: data.is_public, created_at: data.created_at };
+  }
+
+  async function addToCollection(collectionId: string, pageId: string): Promise<CollectionItem> {
+    const { data, error } = await supabase
+      .from("collection_items")
+      .insert({ collection_id: collectionId, page_id: pageId })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return { id: data.id, collection_id: data.collection_id, page_id: data.page_id, position: data.position, added_at: data.added_at };
+  }
+
+  async function removeFromCollection(collectionId: string, pageId: string): Promise<void> {
+    const { error } = await supabase
+      .from("collection_items")
+      .delete()
+      .eq("collection_id", collectionId)
+      .eq("page_id", pageId);
+    if (error) throw error;
   }
 
   async function getAchievements(userId: string): Promise<Achievement[]> {

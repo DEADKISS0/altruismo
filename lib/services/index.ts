@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution, Collection, CollectionItem } from "@/types";
 import * as mock from "./mock-service";
 import { isSupabaseServiceConfigured } from "./supabase-config";
 
@@ -250,6 +250,36 @@ export async function getRatingDistribution(pageId: string): Promise<RatingDistr
   return useSupabase()
     ? (await getSupabaseService()).getRatingDistribution(pageId)
     : mock.getRatingDistribution(pageId);
+}
+
+export async function getCollections(userId?: string): Promise<Collection[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getCollections(userId)
+    : mock.getCollections(userId);
+}
+
+export async function getCollectionItems(collectionId: string): Promise<CollectionItem[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getCollectionItems(collectionId)
+    : mock.getCollectionItems(collectionId);
+}
+
+export async function createCollection(name: string, description?: string, isPublic?: boolean): Promise<Collection> {
+  return useSupabase()
+    ? (await getSupabaseService()).createCollection(name, description, isPublic)
+    : mock.createCollection(name, description, isPublic);
+}
+
+export async function addToCollection(collectionId: string, pageId: string): Promise<CollectionItem> {
+  return useSupabase()
+    ? (await getSupabaseService()).addToCollection(collectionId, pageId)
+    : mock.addToCollection(collectionId, pageId);
+}
+
+export async function removeFromCollection(collectionId: string, pageId: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).removeFromCollection(collectionId, pageId)
+    : mock.removeFromCollection(collectionId, pageId);
 }
 
 export async function awardBadge(userId: string, badgeType: string): Promise<void> {
