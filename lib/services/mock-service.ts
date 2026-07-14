@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement, Review, RatingDistribution, Collection, CollectionItem } from "@/types";
 import { encodeHtmlToDataUrl } from "@/lib/utils";
 import { mockState, loadFromStorage, saveToStorage } from "./mock-storage";
 import {
@@ -455,6 +455,57 @@ export async function getRatingDistribution(pageId: string): Promise<RatingDistr
   const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   reviews.forEach(r => { counts[r.rating] = (counts[r.rating] || 0) + 1; });
   return Object.entries(counts).map(([k, v]) => ({ rating: Number(k), count: v }));
+}
+
+let mockCollections: Collection[] = [];
+let mockCollectionItems: CollectionItem[] = [];
+
+export async function getCollections(userId?: string): Promise<Collection[]> {
+  let filtered = mockCollections;
+  if (userId) filtered = filtered.filter(c => c.user_id === userId);
+  return filtered;
+}
+
+export async function getCollectionItems(collectionId: string): Promise<CollectionItem[]> {
+  return mockCollectionItems
+    .filter(i => i.collection_id === collectionId)
+    .map(i => ({
+      ...i,
+      page: mockState.pages.find(p => p.id === i.page_id),
+    }));
+}
+
+export async function createCollection(name: string, description?: string, isPublic?: boolean): Promise<Collection> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("No current user");
+  const col: Collection = {
+    id: `col-${Date.now()}`,
+    user_id: user.id,
+    name,
+    description: description || null,
+    is_public: isPublic !== false,
+    created_at: new Date().toISOString(),
+  };
+  mockCollections.push(col);
+  return col;
+}
+
+export async function addToCollection(collectionId: string, pageId: string): Promise<CollectionItem> {
+  const existing = mockCollectionItems.find(i => i.collection_id === collectionId && i.page_id === pageId);
+  if (existing) return existing;
+  const item: CollectionItem = {
+    id: `item-${Date.now()}`,
+    collection_id: collectionId,
+    page_id: pageId,
+    position: mockCollectionItems.filter(i => i.collection_id === collectionId).length,
+    added_at: new Date().toISOString(),
+  };
+  mockCollectionItems.push(item);
+  return item;
+}
+
+export async function removeFromCollection(collectionId: string, pageId: string): Promise<void> {
+  mockCollectionItems = mockCollectionItems.filter(i => !(i.collection_id === collectionId && i.page_id === pageId));
 }
 
 export async function awardBadge(userId: string, badgeType: string): Promise<void> {

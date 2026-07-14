@@ -276,6 +276,9 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
     }
   };
 
+  const totalReviews = ratingDist.reduce((sum, r) => sum + r.count, 0);
+  const maxCount = Math.max(...ratingDist.map(r => r.count), 1);
+
   const handleLike = async () => {
     if (!user) {
       toast.error(messages.nav.login);
