@@ -1,15 +1,4 @@
 ﻿{
   "framework": "nextjs",
-  "buildCommand": "next build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "crons": [
-    {
-      "path": "/api/cron/farm-upload",
-      "schedule": "30 19 * * *"
-    }
-  ]
+  "buildCommand": "next build"
 }
-
-
-
