@@ -130,9 +130,9 @@ export function PageViewer({ page }: PageViewerProps) {
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
-    if (page.file_url) {
+    if (page.file_url && page.file_url.length > 0) {
       setToolUrl(page.file_url);
-    } else if (page.source_code) {
+    } else if (page.source_code && page.source_code.length > 0) {
       const blob = new Blob([page.source_code], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       setToolUrl(url);
@@ -288,23 +288,24 @@ export function PageViewer({ page }: PageViewerProps) {
           {activeTab === "tool" && (
             <Card className="bg-card border-border overflow-hidden relative">
               <CardContent className="p-0">
-                {toolError ? (
+                {toolError && !toolUrl ? (
                   <div className="w-full h-[600px] flex items-center justify-center text-ash flex-col gap-4">
                     <p>{messages.page.error}</p>
                     <p className="text-sm">El desarrollador no incluyó el archivo fuente.</p>
                   </div>
-                ) : toolUrl ? (
+                ) : !toolUrl ? (
+                  <div className="w-full h-[600px] flex items-center justify-center text-ash">
+                    {messages.page.loading}
+                  </div>
+                ) : null}
+                {toolUrl && (
                   <iframe
                     src={toolUrl}
                     className="w-full h-[600px] border-0"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     title={page.title}
-                    onError={() => setToolError(true)}
+                    onLoad={() => setToolError(false)}
                   />
-                ) : (
-                  <div className="w-full h-[600px] flex items-center justify-center text-ash">
-                    {messages.page.loading}
-                  </div>
                 )}
               </CardContent>
               {toolUrl && (
