@@ -145,7 +145,6 @@ export function PageViewer({ page, challenges = [] }: PageViewerProps) {
   const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source" | "challenges" | "reviews">("tool");
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [toolUrl, setToolUrl] = useState<string | null>(null);
   const [toolError, setToolError] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
