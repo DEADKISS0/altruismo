@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { User, Page } from "@/types";
 import { PageCard } from "@/components/page-card";
 import { UploadForm } from "@/components/upload-form";
+import { BatchUploadForm } from "@/components/batch-upload-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -199,7 +200,13 @@ export function DashboardClient({ user, pages: initialPages, locale }: Dashboard
         <TabsContent value="upload" className="space-y-6">
           <h2 className="font-heading text-3xl text-parchment">{messages.dashboard.batchUpload}</h2>
           <p className="text-ash">{messages.dashboard.batchUploadDesc}</p>
-          <UploadForm onSuccess={handleUploadSuccess} />
+          <BatchUploadForm onSuccess={handleUploadSuccess} />
+          <div className="border-t border-border pt-6 mt-6">
+            <h3 className="font-heading text-xl text-parchment mb-3">
+              {locale === "es" ? "Subida individual" : "Single upload"}
+            </h3>
+            <UploadForm onSuccess={handleUploadSuccess} />
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
