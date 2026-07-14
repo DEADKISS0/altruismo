@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement } from "@/types";
 
 const PAGES_BUCKET = "pages";
 
@@ -503,6 +503,111 @@ export function createService(supabase: any) {
     return tags;
   }
 
+  async function createPageVersion(pageId: string, changeSummary?: string): Promise<string> {
+    const { data: page } = await supabase
+      .from("pages")
+      .select("source_code, file_url, title, description")
+      .eq("id", pageId)
+      .single();
+    if (!page) throw new Error("Page not found");
+
+    const { data: versionId, error } = await supabase.rpc("create_page_version", {
+      p_page_id: pageId,
+      p_source_code: page.source_code,
+      p_file_url: page.file_url,
+      p_title: page.title,
+      p_description: page.description,
+      p_change_summary: changeSummary || null,
+    });
+
+    if (error) throw error;
+    return versionId;
+  }
+
+  async function getPageVersions(pageId: string): Promise<any[]> {
+    const { data, error } = await supabase.rpc("get_page_versions", {
+      p_page_id: pageId,
+    });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function restorePageVersion(versionId: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc("restore_page_version", {
+      p_version_id: versionId,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function getAchievements(userId: string): Promise<Achievement[]> {
+    const { data, error } = await supabase
+      .from("achievements")
+      .select("*")
+      .eq("user_id", userId)
+      .order("earned_at", { ascending: false });
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      user_id: row.user_id,
+      badge_type: row.badge_type,
+      earned_at: row.earned_at,
+    }));
+  }
+
+  async function awardBadge(userId: string, badgeType: string): Promise<void> {
+    const { error } = await supabase
+      .from("achievements")
+      .upsert({ user_id: userId, badge_type: badgeType }, { onConflict: "user_id,badge_type" });
+    if (error) throw error;
+  }
+
+  async function checkAndAwardBadges(userId: string): Promise<string[]> {
+    const awarded: string[] = [];
+
+    // Check upload count
+    const { count: uploadCount } = await supabase
+      .from("pages")
+      .select("*", { count: "exact", head: true })
+      .eq("author_id", userId);
+
+    if (uploadCount && uploadCount >= 1) {
+      await awardBadge(userId, "first_upload");
+      awarded.push("first_upload");
+    }
+    if (uploadCount && uploadCount >= 10) {
+      await awardBadge(userId, "ten_uploads");
+      awarded.push("ten_uploads");
+    }
+
+    // Check likes received
+    const { count: likesCount } = await supabase
+      .from("page_likes")
+      .select("*", { count: "exact", head: true })
+      .in("page_id",
+        (await supabase.from("pages").select("id").eq("author_id", userId)).data?.map((p: any) => p.id) || []
+      );
+
+    if (likesCount && likesCount >= 100) {
+      await awardBadge(userId, "hundred_likes");
+      awarded.push("hundred_likes");
+    }
+
+    // Check challenges completed
+    const { count: challengeCount } = await supabase
+      .from("challenge_participants")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("completed", true);
+
+    if (challengeCount && challengeCount >= 1) {
+      await awardBadge(userId, "challenge_complete");
+      awarded.push("challenge_complete");
+    }
+
+    return awarded;
+  }
+
   async function toggleFeatured(pageId: string): Promise<boolean> {
     const { data: page } = await supabase.from("pages").select("is_featured").eq("id", pageId).single();
     if (!page) throw new Error("Page not found");
@@ -555,6 +660,12 @@ export function createService(supabase: any) {
     setPageTags,
     toggleFeatured,
     getFeaturedPages,
+    createPageVersion,
+    getPageVersions,
+    restorePageVersion,
+    getAchievements,
+    awardBadge,
+    checkAndAwardBadges,
   };
 }
 

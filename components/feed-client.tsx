@@ -7,8 +7,15 @@ import { SearchBar } from "@/components/search-bar";
 import { CategoryFilter } from "@/components/category-filter";
 import { PageCategory, Page } from "@/types";
 import { getPages } from "@/lib/services";
-import { Search, FilterX, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, FilterX, Sparkles, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ITEMS_PER_PAGE = 9;
 
@@ -25,6 +32,7 @@ export function FeedClient({ initialPages }: FeedClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState<"recent" | "popular" | "rating">("recent");
 
   const isInitialMount = useRef(true);
 
@@ -52,11 +60,24 @@ export function FeedClient({ initialPages }: FeedClientProps) {
     setCurrentPage(1);
   };
 
-  const totalPages = Math.ceil(pages.length / ITEMS_PER_PAGE);
+  const sortedPages = useMemo(() => {
+    const sorted = [...pages];
+    switch (sortBy) {
+      case "popular":
+        return sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
+      case "rating":
+        return sorted.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+      case "recent":
+      default:
+        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+  }, [pages, sortBy]);
+
+  const totalPages = Math.ceil(sortedPages.length / ITEMS_PER_PAGE);
   const paginatedPages = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return pages.slice(start, start + ITEMS_PER_PAGE);
-  }, [pages, currentPage]);
+    return sortedPages.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedPages, currentPage]);
 
   return (
     <div className="container mx-auto px-4 py-12 fade-in">
@@ -78,9 +99,22 @@ export function FeedClient({ initialPages }: FeedClientProps) {
       </div>
 
       <div className="space-y-6 mb-10">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash" />
-          <SearchBar value={search} onChange={setSearch} />
+        <div className="flex gap-4 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ash" />
+            <SearchBar value={search} onChange={setSearch} />
+          </div>
+          <Select value={sortBy} onValueChange={(v) => { setSortBy(v as typeof sortBy); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[180px] bg-pitch border-border text-parchment">
+              <ArrowUpDown className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-pitch border-border">
+              <SelectItem value="recent" className="text-parchment">Más recientes</SelectItem>
+              <SelectItem value="popular" className="text-parchment">Más populares</SelectItem>
+              <SelectItem value="rating" className="text-parchment">Mejor valorados</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <CategoryFilter selected={category} onChange={setCategory} />
       </div>

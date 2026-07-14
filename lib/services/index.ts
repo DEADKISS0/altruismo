@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement } from "@/types";
 import * as mock from "./mock-service";
 import { isSupabaseServiceConfigured } from "./supabase-config";
 
@@ -204,6 +204,42 @@ export async function getFeaturedPages(limit = 3): Promise<Page[]> {
   return useSupabase()
     ? (await getSupabaseService()).getFeaturedPages(limit)
     : mock.getFeaturedPages(limit);
+}
+
+export async function createPageVersion(pageId: string, changeSummary?: string): Promise<string> {
+  return useSupabase()
+    ? (await getSupabaseService()).createPageVersion(pageId, changeSummary)
+    : mock.createPageVersion(pageId, changeSummary);
+}
+
+export async function getPageVersions(pageId: string): Promise<any[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getPageVersions(pageId)
+    : mock.getPageVersions(pageId);
+}
+
+export async function restorePageVersion(versionId: string): Promise<boolean> {
+  return useSupabase()
+    ? (await getSupabaseService()).restorePageVersion(versionId)
+    : mock.restorePageVersion(versionId);
+}
+
+export async function getAchievements(userId: string): Promise<Achievement[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getAchievements(userId)
+    : mock.getAchievements(userId);
+}
+
+export async function awardBadge(userId: string, badgeType: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).awardBadge(userId, badgeType)
+    : mock.awardBadge(userId, badgeType);
+}
+
+export async function checkAndAwardBadges(userId: string): Promise<string[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).checkAndAwardBadges(userId)
+    : mock.checkAndAwardBadges(userId);
 }
 
 export function getCategories(): { value: PageCategory; label: string }[] {

@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag, Achievement } from "@/types";
 import { encodeHtmlToDataUrl } from "@/lib/utils";
 import { mockState, loadFromStorage, saveToStorage } from "./mock-storage";
 import {
@@ -376,6 +376,73 @@ export async function getFeaturedPages(limit = 3): Promise<Page[]> {
     .filter((p) => mockFeaturedIds.has(p.id))
     .slice(0, limit)
     .map((p) => ({ ...p, author: mockState.users.find((u) => u.id === p.author_id) }));
+}
+
+let mockVersions: any[] = [];
+
+export async function createPageVersion(pageId: string, changeSummary?: string): Promise<string> {
+  const page = mockState.pages.find((p) => p.id === pageId);
+  if (!page) throw new Error("Page not found");
+  const versionNumber = mockVersions.filter((v) => v.page_id === pageId).length + 1;
+  const versionId = `version-${Date.now()}`;
+  mockVersions.push({
+    id: versionId,
+    page_id: pageId,
+    version_number: versionNumber,
+    source_code: page.source_code,
+    file_url: page.file_url,
+    title: page.title,
+    description: page.description,
+    change_summary: changeSummary || null,
+    created_at: new Date().toISOString(),
+  });
+  return versionId;
+}
+
+export async function getPageVersions(pageId: string): Promise<any[]> {
+  return mockVersions
+    .filter((v) => v.page_id === pageId)
+    .sort((a, b) => b.version_number - a.version_number);
+}
+
+export async function restorePageVersion(versionId: string): Promise<boolean> {
+  const version = mockVersions.find((v) => v.id === versionId);
+  if (!version) return false;
+  const page = mockState.pages.find((p) => p.id === version.page_id);
+  if (!page) return false;
+  page.source_code = version.source_code;
+  page.file_url = version.file_url;
+  page.title = version.title;
+  page.description = version.description;
+  return true;
+}
+
+let mockAchievements: Achievement[] = [];
+
+export async function getAchievements(userId: string): Promise<Achievement[]> {
+  return mockAchievements.filter((a) => a.user_id === userId);
+}
+
+export async function awardBadge(userId: string, badgeType: string): Promise<void> {
+  const exists = mockAchievements.some(
+    (a) => a.user_id === userId && a.badge_type === badgeType
+  );
+  if (!exists) {
+    mockAchievements.push({
+      id: `ach-${Date.now()}`,
+      user_id: userId,
+      badge_type: badgeType,
+      earned_at: new Date().toISOString(),
+    });
+  }
+}
+
+export async function checkAndAwardBadges(userId: string): Promise<string[]> {
+  const awarded: string[] = [];
+  const uploadCount = mockState.pages.filter((p) => p.author_id === userId).length;
+  if (uploadCount >= 1) { await awardBadge(userId, "first_upload"); awarded.push("first_upload"); }
+  if (uploadCount >= 10) { await awardBadge(userId, "ten_uploads"); awarded.push("ten_uploads"); }
+  return awarded;
 }
 
 export function getCategories(): { value: PageCategory; label: string }[] {
