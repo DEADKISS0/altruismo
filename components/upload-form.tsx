@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createPage, uploadFiles, getCategories } from "@/lib/services";
+import { createPage, uploadFiles, getCategories, setPageTags } from "@/lib/services";
 import { PageCategory } from "@/types";
+import { TagSelector } from "@/components/tag-selector";
 import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,6 +37,7 @@ export function UploadForm({ onSuccess }: UploadFormProps) {
   const [files, setFiles] = useState<FileList | null>(null);
   const [isOpenSource, setIsOpenSource] = useState(false);
   const [sourceCode, setSourceCode] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,6 +61,9 @@ export function UploadForm({ onSuccess }: UploadFormProps) {
         is_open_source: isOpenSource,
         source_code: isOpenSource ? sourceCode : null,
       });
+      if (selectedTags.length > 0) {
+        await setPageTags(page.id, selectedTags).catch(() => {});
+      }
       toast.success(messages.common.success, {
         description: locale === "es" ? "Página publicada" : "Page published",
       });
@@ -118,6 +123,8 @@ export function UploadForm({ onSuccess }: UploadFormProps) {
           </SelectContent>
         </Select>
       </div>
+
+      <TagSelector selectedTags={selectedTags} onChange={setSelectedTags} />
 
       <div className="space-y-2">
         <Label htmlFor="files" className="text-parchment">{t.files}</Label>

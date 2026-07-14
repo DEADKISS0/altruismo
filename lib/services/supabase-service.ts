@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag } from "@/types";
 
 const PAGES_BUCKET = "pages";
 
@@ -26,6 +26,9 @@ async function getCategoryIdBySlug(supabase: any, slug: string | null): Promise<
 
 function mapPage(row: any): Page {
   const author = row.author ? mapUser(row.author) : undefined;
+  const tags = row.page_tags
+    ? row.page_tags.map((pt: any) => ({ id: pt.tag?.id || pt.tag_id, name: pt.tag?.name || "" })).filter((t: Tag) => t.name)
+    : row.tags || [];
   return {
     id: row.id,
     author_id: row.author_id,
@@ -40,6 +43,8 @@ function mapPage(row: any): Page {
     average_rating: Number(row.average_rating) || 0,
     created_at: row.created_at,
     comments_count: row.comments_count || 0,
+    is_featured: row.is_featured || false,
+    tags,
   };
 }
 
@@ -74,7 +79,7 @@ export function createService(supabase: any) {
   }): Promise<Page[]> {
     let query = supabase
       .from("pages")
-      .select("*, author:profiles(*), categories(slug)")
+      .select("*, author:profiles(*), categories(slug), page_tags(tag:tags(*))")
       .order("created_at", { ascending: false });
 
     if (params?.category) {
@@ -91,14 +96,14 @@ export function createService(supabase: any) {
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map((row: any) =>
-      mapPage({ ...row, category_slug: row.categories?.slug })
+      mapPage({ ...row, category_slug: row.categories?.slug, page_tags: row.page_tags })
     );
   }
 
   async function getPage(id: string): Promise<Page | undefined> {
     const { data } = await supabase
       .from("pages")
-      .select("*, author:profiles(*), categories(slug)")
+      .select("*, author:profiles(*), categories(slug), page_tags(tag:tags(*))")
       .eq("id", id)
       .single();
     return data ? mapPage({ ...data, category_slug: data.categories?.slug }) : undefined;
@@ -457,6 +462,66 @@ export function createService(supabase: any) {
     ];
   }
 
+  async function getTags(): Promise<Tag[]> {
+    const { data, error } = await supabase.from("tags").select("*").order("name");
+    if (error) throw error;
+    return (data || []).map((row: any) => ({ id: row.id, name: row.name }));
+  }
+
+  async function getPageTags(pageId: string): Promise<Tag[]> {
+    const { data, error } = await supabase
+      .from("page_tags")
+      .select("tag:tags(*)")
+      .eq("page_id", pageId);
+    if (error) throw error;
+    return (data || []).map((row: any) => ({ id: row.tag.id, name: row.tag.name }));
+  }
+
+  async function addPageTag(pageId: string, tagName: string): Promise<Tag> {
+    const normalized = tagName.toLowerCase().trim();
+    let { data: tag } = await supabase.from("tags").select("*").eq("name", normalized).single();
+    if (!tag) {
+      const { data: newTag } = await supabase.from("tags").insert({ name: normalized }).select("*").single();
+      tag = newTag;
+    }
+    if (!tag) throw new Error("Failed to create tag");
+    await supabase.from("page_tags").upsert({ page_id: pageId, tag_id: tag.id });
+    return { id: tag.id, name: tag.name };
+  }
+
+  async function removePageTag(pageId: string, tagId: string): Promise<void> {
+    await supabase.from("page_tags").delete().eq("page_id", pageId).eq("tag_id", tagId);
+  }
+
+  async function setPageTags(pageId: string, tagNames: string[]): Promise<Tag[]> {
+    await supabase.from("page_tags").delete().eq("page_id", pageId);
+    const tags: Tag[] = [];
+    for (const name of tagNames) {
+      const tag = await addPageTag(pageId, name);
+      tags.push(tag);
+    }
+    return tags;
+  }
+
+  async function toggleFeatured(pageId: string): Promise<boolean> {
+    const { data: page } = await supabase.from("pages").select("is_featured").eq("id", pageId).single();
+    if (!page) throw new Error("Page not found");
+    const newVal = !page.is_featured;
+    await supabase.from("pages").update({ is_featured: newVal }).eq("id", pageId);
+    return newVal;
+  }
+
+  async function getFeaturedPages(limit = 3): Promise<Page[]> {
+    const { data, error } = await supabase
+      .from("pages")
+      .select("*, author:profiles(*), categories(slug), page_tags(tag:tags(*))")
+      .eq("is_featured", true)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data || []).map((row: any) => mapPage({ ...row, category_slug: row.categories?.slug, page_tags: row.page_tags }));
+  }
+
   return {
     getCurrentUser,
     getUser,
@@ -483,6 +548,13 @@ export function createService(supabase: any) {
     togglePageLike,
     createChallenge,
     getCategories,
+    getTags,
+    getPageTags,
+    addPageTag,
+    removePageTag,
+    setPageTags,
+    toggleFeatured,
+    getFeaturedPages,
   };
 }
 

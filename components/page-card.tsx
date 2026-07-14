@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Page, PageCategory } from "@/types";
+import { Page, PageCategory, Tag } from "@/types";
+import { TagBadge } from "@/components/tag-badge";
 import { useLocale } from "@/components/locale-provider";
 import { useAuth } from "@/components/auth-provider";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, Eye, MessageSquare, Code2, FileCode, Heart } from "lucide-react";
+import { Star, Eye, MessageSquare, Code2, FileCode, Heart, Award } from "lucide-react";
 import { getPageLikes, isPageLiked, togglePageLike } from "@/lib/services";
 import { toast } from "sonner";
 
@@ -76,6 +77,14 @@ export function PageCard({ page }: PageCardProps) {
                 </Badge>
               </div>
             )}
+            {(page as any).is_featured && (
+              <div className="absolute top-2 left-2 fade-in stagger-1">
+                <Badge variant="secondary" className="bg-ember/80 text-parchment border border-ember/50">
+                  <Award className="h-3 w-3 mr-1" />
+                  Destacado
+                </Badge>
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col items-start gap-3 p-5">
@@ -92,6 +101,18 @@ export function PageCard({ page }: PageCardProps) {
             {page.title}
           </h3>
           <p className="text-sm text-ash line-clamp-2">{page.description}</p>
+          {page.tags && page.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {page.tags.slice(0, 3).map((tag: Tag) => (
+                <span key={tag.id} className="text-xs text-ash bg-void px-1.5 py-0.5 rounded">
+                  {tag.name}
+                </span>
+              ))}
+              {page.tags.length > 3 && (
+                <span className="text-xs text-ash">+{page.tags.length - 3}</span>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between w-full text-sm text-ash mt-2">
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">

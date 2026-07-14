@@ -23,6 +23,11 @@ export type PageCategory =
   | "data"
   | "professional";
 
+export interface Tag {
+  id: string;
+  name: string;
+}
+
 export interface Page {
   id: string;
   author_id: string;
@@ -32,11 +37,13 @@ export interface Page {
   category: PageCategory | null;
   file_url: string;
   is_open_source: boolean;
+  is_featured?: boolean;
   source_code: string | null;
   views: number;
   average_rating: number;
   created_at: string;
   comments_count?: number;
+  tags?: Tag[];
 }
 
 export type ChallengeGoalType = "daily_usage" | "milestone" | "community";

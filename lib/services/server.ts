@@ -47,3 +47,7 @@ export async function getChallenge(id: string): Promise<Challenge | undefined> {
 export async function getLeaderboard(): Promise<User[]> {
   return withService((s) => s.getLeaderboard());
 }
+
+export async function getFeaturedPages(limit = 3): Promise<Page[]> {
+  return withService((s) => s.getFeaturedPages(limit));
+}

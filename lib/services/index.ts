@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag } from "@/types";
 import * as mock from "./mock-service";
 import { isSupabaseServiceConfigured } from "./supabase-config";
 
@@ -166,6 +166,44 @@ export async function uploadFiles(files: File[]): Promise<string> {
   return useSupabase()
     ? (await getSupabaseService()).uploadFiles(files)
     : mock.uploadFiles(files);
+}
+
+export async function getTags(): Promise<Tag[]> {
+  return useSupabase() ? (await getSupabaseService()).getTags() : mock.getTags();
+}
+
+export async function getPageTags(pageId: string): Promise<Tag[]> {
+  return useSupabase() ? (await getSupabaseService()).getPageTags(pageId) : mock.getPageTags(pageId);
+}
+
+export async function addPageTag(pageId: string, tagName: string): Promise<Tag> {
+  return useSupabase()
+    ? (await getSupabaseService()).addPageTag(pageId, tagName)
+    : mock.addPageTag(pageId, tagName);
+}
+
+export async function removePageTag(pageId: string, tagId: string): Promise<void> {
+  return useSupabase()
+    ? (await getSupabaseService()).removePageTag(pageId, tagId)
+    : mock.removePageTag(pageId, tagId);
+}
+
+export async function setPageTags(pageId: string, tagNames: string[]): Promise<Tag[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).setPageTags(pageId, tagNames)
+    : mock.setPageTags(pageId, tagNames);
+}
+
+export async function toggleFeatured(pageId: string): Promise<boolean> {
+  return useSupabase()
+    ? (await getSupabaseService()).toggleFeatured(pageId)
+    : mock.toggleFeatured(pageId);
+}
+
+export async function getFeaturedPages(limit = 3): Promise<Page[]> {
+  return useSupabase()
+    ? (await getSupabaseService()).getFeaturedPages(limit)
+    : mock.getFeaturedPages(limit);
 }
 
 export function getCategories(): { value: PageCategory; label: string }[] {

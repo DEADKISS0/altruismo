@@ -1,13 +1,18 @@
 import { Hero } from "@/components/hero";
 import { PageCard } from "@/components/page-card";
 import { ChallengeCard } from "@/components/challenge-card";
-import { getPages, getChallenges } from "@/lib/services/server";
+import { getPages, getChallenges, getFeaturedPages } from "@/lib/services/server";
 import { LocaleParams } from "@/types";
 
 export default async function HomePage({ params }: LocaleParams) {
   const { locale } = await params;
-  const pages = await getPages();
-  const challenges = await getChallenges();
+  const [pages, challenges, featured] = await Promise.all([
+    getPages(),
+    getChallenges(),
+    getFeaturedPages(3),
+  ]);
+
+  const displayFeatured = featured.length > 0 ? featured : pages.slice(0, 3);
 
   return (
     <div className="min-h-screen">
@@ -21,7 +26,7 @@ export default async function HomePage({ params }: LocaleParams) {
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pages.slice(0, 3).map((page) => (
+            {displayFeatured.map((page) => (
               <PageCard key={page.id} page={page} />
             ))}
           </div>

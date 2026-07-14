@@ -1,4 +1,4 @@
-import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory } from "@/types";
+import { Page, User, Challenge, Comment, ChallengeParticipant, PageCategory, Tag } from "@/types";
 import { encodeHtmlToDataUrl } from "@/lib/utils";
 import { mockState, loadFromStorage, saveToStorage } from "./mock-storage";
 import {
@@ -304,6 +304,78 @@ export async function uploadFiles(files: File[]): Promise<string> {
   const htmlFile = files.find((f) => f.name.endsWith(".html")) || files[0];
   const text = await htmlFile.text();
   return encodeHtmlToDataUrl(text);
+}
+
+let mockTags: Tag[] = [
+  { id: "tag-1", name: "javascript" },
+  { id: "tag-2", name: "css" },
+  { id: "tag-3", name: "html" },
+  { id: "tag-4", name: "api" },
+  { id: "tag-5", name: "responsive" },
+  { id: "tag-6", name: "dark-mode" },
+  { id: "tag-7", name: "accesibilidad" },
+  { id: "tag-8", name: "productividad" },
+  { id: "tag-9", name: "datos" },
+  { id: "tag-10", name: "utilidades" },
+];
+
+let mockPageTags: { page_id: string; tag_id: string }[] = [];
+
+export async function getTags(): Promise<Tag[]> {
+  return [...mockTags];
+}
+
+export async function getPageTags(pageId: string): Promise<Tag[]> {
+  return mockPageTags
+    .filter((pt) => pt.page_id === pageId)
+    .map((pt) => mockTags.find((t) => t.id === pt.tag_id))
+    .filter(Boolean) as Tag[];
+}
+
+export async function addPageTag(pageId: string, tagName: string): Promise<Tag> {
+  const normalized = tagName.toLowerCase().trim();
+  let tag = mockTags.find((t) => t.name === normalized);
+  if (!tag) {
+    tag = { id: `tag-${Date.now()}`, name: normalized };
+    mockTags.push(tag);
+  }
+  const exists = mockPageTags.some((pt) => pt.page_id === pageId && pt.tag_id === tag!.id);
+  if (!exists) {
+    mockPageTags.push({ page_id: pageId, tag_id: tag.id });
+  }
+  return tag;
+}
+
+export async function removePageTag(pageId: string, tagId: string): Promise<void> {
+  mockPageTags = mockPageTags.filter((pt) => !(pt.page_id === pageId && pt.tag_id === tagId));
+}
+
+export async function setPageTags(pageId: string, tagNames: string[]): Promise<Tag[]> {
+  mockPageTags = mockPageTags.filter((pt) => pt.page_id !== pageId);
+  const tags: Tag[] = [];
+  for (const name of tagNames) {
+    const tag = await addPageTag(pageId, name);
+    tags.push(tag);
+  }
+  return tags;
+}
+
+let mockFeaturedIds = new Set<string>();
+
+export async function toggleFeatured(pageId: string): Promise<boolean> {
+  if (mockFeaturedIds.has(pageId)) {
+    mockFeaturedIds.delete(pageId);
+    return false;
+  }
+  mockFeaturedIds.add(pageId);
+  return true;
+}
+
+export async function getFeaturedPages(limit = 3): Promise<Page[]> {
+  return mockState.pages
+    .filter((p) => mockFeaturedIds.has(p.id))
+    .slice(0, limit)
+    .map((p) => ({ ...p, author: mockState.users.find((u) => u.id === p.author_id) }));
 }
 
 export function getCategories(): { value: PageCategory; label: string }[] {
