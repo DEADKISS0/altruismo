@@ -352,6 +352,8 @@ export default function UploadPageClient() {
   const router = useRouter();
   const [mode, setMode] = useState<"choose" | "single" | "batch">("choose");
 
+  // Version marker for cache busting
+
   const handleSuccess = () => {
     router.push(`/${locale}/feed`);
   };
