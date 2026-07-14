@@ -25,6 +25,7 @@ import {
   Link as LinkIcon,
   Bookmark,
   BookmarkCheck,
+  Trophy,
 } from "lucide-react";
 import {
   isFollowing,
@@ -40,8 +41,21 @@ import {
 } from "@/lib/services";
 import { toast } from "sonner";
 
+interface Challenge {
+  id: string;
+  page_id: string;
+  title: string;
+  description: string | null;
+  duration_days: number | null;
+  goal_type: string | null;
+  goal_value: number | null;
+  reward_text: string | null;
+  is_active: boolean | null;
+}
+
 interface PageViewerProps {
   page: Page;
+  challenges?: Challenge[];
 }
 
 function CommentItem({
@@ -110,7 +124,7 @@ function CommentItem({
   );
 }
 
-export function PageViewer({ page }: PageViewerProps) {
+export function PageViewer({ page, challenges = [] }: PageViewerProps) {
   const { messages, locale } = useLocale();
   const { user } = useAuth();
   const t = messages.page;
@@ -121,7 +135,7 @@ export function PageViewer({ page }: PageViewerProps) {
   const [newComment, setNewComment] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
-  const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source">("tool");
+  const [activeTab, setActiveTab] = useState<"tool" | "comments" | "source" | "challenges">("tool");
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
   const [toolError, setToolError] = useState(false);
@@ -271,15 +285,25 @@ export function PageViewer({ page }: PageViewerProps) {
                 {t.source}
               </Button>
             )}
-            <Button
-              variant={activeTab === "comments" ? "default" : "outline"}
-              onClick={() => setActiveTab("comments")}
-              className={activeTab === "comments" ? "bg-ember text-parchment" : ""}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              {t.comments} ({commentsCount})
-            </Button>
-          </div>
+                <Button
+                  variant={activeTab === "comments" ? "default" : "outline"}
+                  onClick={() => setActiveTab("comments")}
+                  className={activeTab === "comments" ? "bg-ember text-parchment" : ""}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {t.comments} ({commentsCount})
+                </Button>
+                {challenges.length > 0 && (
+                  <Button
+                    variant={activeTab === "challenges" ? "default" : "outline"}
+                    onClick={() => setActiveTab("challenges")}
+                    className={activeTab === "challenges" ? "bg-ember text-parchment" : ""}
+                  >
+                    <Trophy className="mr-2 h-4 w-4" />
+                    Retos ({challenges.length})
+                  </Button>
+                )}
+              </div>
 
           {activeTab === "tool" && (
             <Card className="bg-card border-border overflow-hidden relative">
@@ -392,6 +416,34 @@ export function PageViewer({ page }: PageViewerProps) {
                       {messages.page.noComments}
                     </p>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === "challenges" && challenges.length > 0 && (
+            <Card className="bg-card border-border">
+              <CardContent className="p-6 space-y-4">
+                <h3 className="font-heading text-2xl text-parchment">Retos de esta herramienta</h3>
+                <p className="text-ash">Completá estos retos usando la herramienta y ganá puntos.</p>
+                <div className="space-y-4">
+                  {challenges.map((challenge) => (
+                    <div key={challenge.id} className="p-4 bg-void border border-border rounded-lg">
+                      <h4 className="font-heading text-lg text-parchment mb-2">{challenge.title}</h4>
+                      <p className="text-ash mb-3">{challenge.description}</p>
+                      <div className="flex flex-wrap gap-4 text-sm text-ash">
+                        {challenge.duration_days && (
+                          <span>⏱ {challenge.duration_days} días</span>
+                        )}
+                        {challenge.goal_value && (
+                          <span>🎯 {challenge.goal_value} usos</span>
+                        )}
+                        {challenge.reward_text && (
+                          <span className="text-ember">🏆 {challenge.reward_text}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
