@@ -125,6 +125,7 @@ export function PageViewer({ page }: PageViewerProps) {
   const [likes, setLikes] = useState(0);
   const [liked, setLiked] = useState(false);
   const [toolUrl, setToolUrl] = useState<string | null>(null);
+  const [toolUrl, setToolUrl] = useState<string | null>(null);
   const [toolError, setToolError] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -133,10 +134,10 @@ export function PageViewer({ page }: PageViewerProps) {
     if (page.file_url && page.file_url.length > 0) {
       setToolUrl(page.file_url);
     } else if (page.source_code && page.source_code.length > 0) {
-      const blob = new Blob([page.source_code], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      setToolUrl(url);
-      return () => URL.revokeObjectURL(url);
+      try {
+        const blob = new Blob([page.source_code], { type: "text/html" });
+        setToolUrl(URL.createObjectURL(blob));
+      } catch { setToolError(true); }
     } else {
       setToolError(true);
     }
